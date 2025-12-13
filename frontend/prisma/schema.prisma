@@ -208,6 +208,13 @@ model Payee {
   // This is standard practice and not sufficient for fraud.
   accountLast4    String?
   
+  // ══════════════════════════════════════════════════════════════════════════
+  // USDC DIRECT PAYMENT (for crypto-native payees)
+  // ══════════════════════════════════════════════════════════════════════════
+  // Wallet address for direct USDC transfers on Base
+  // This is a public blockchain address, not sensitive data.
+  walletAddress   String?
+  
   // Payment method preference
   paymentMethod   PaymentMethod
   
@@ -279,6 +286,7 @@ enum PayeeType {
 }
 
 enum PaymentMethod {
+  USDC          // Direct USDC transfer on Base (instant)
   WIRE          // Domestic wire transfer
   ACH           // ACH transfer (slower, cheaper)
   INTERNATIONAL // International wire (SWIFT)

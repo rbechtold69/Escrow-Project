@@ -131,6 +131,7 @@ const payeeTypeIcons: Record<string, React.ReactNode> = {
 };
 
 const paymentMethodIcons: Record<string, React.ReactNode> = {
+  USDC: <CreditCard className="h-4 w-4 text-blue-500" />,
   WIRE: <Landmark className="h-4 w-4" />,
   ACH: <CreditCard className="h-4 w-4" />,
   CHECK: <Mail className="h-4 w-4" />,
@@ -139,6 +140,7 @@ const paymentMethodIcons: Record<string, React.ReactNode> = {
 };
 
 const paymentMethodLabels: Record<string, string> = {
+  USDC: 'USDC Direct',
   WIRE: 'Wire Transfer',
   ACH: 'ACH Transfer',
   CHECK: 'Physical Check',

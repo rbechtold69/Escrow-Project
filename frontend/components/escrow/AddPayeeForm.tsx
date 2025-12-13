@@ -50,7 +50,7 @@ import { cn } from '@/lib/utils';
 // Types & Schemas
 // ============================================================
 
-export type PaymentMethod = 'WIRE' | 'ACH' | 'CHECK';
+export type PaymentMethod = 'WIRE' | 'ACH' | 'CHECK' | 'USDC';
 
 export type PayeeType = 
   // Primary Parties
@@ -230,15 +230,31 @@ const payeeSchema = z.object({
   lastName: z.string().min(1, 'Last name is required'),
   email: z.string().email('Valid email required').optional().or(z.literal('')),
   payeeType: z.enum(allPayeeTypes as [PayeeType, ...PayeeType[]]),
-  paymentMethod: z.enum(['WIRE', 'ACH', 'CHECK']),
+  paymentMethod: z.enum(['WIRE', 'ACH', 'CHECK', 'USDC']),
   amount: z.number().positive('Amount must be positive').optional(),
   basisPoints: z.number().min(0).max(10000).optional(),
   usePercentage: z.boolean().default(false),
-  // Bank details
-  bankName: z.string().min(2, 'Bank name required'),
-  routingNumber: z.string().regex(/^\d{9}$/, 'Routing number must be 9 digits'),
-  accountNumber: z.string().regex(/^\d{4,17}$/, 'Account number must be 4-17 digits'),
+  // Bank details (required for WIRE/ACH/CHECK)
+  bankName: z.string().optional(),
+  routingNumber: z.string().optional(),
+  accountNumber: z.string().optional(),
   accountType: z.enum(['checking', 'savings']).default('checking'),
+  // USDC wallet address (required for USDC)
+  walletAddress: z.string().optional(),
+}).refine((data) => {
+  // For USDC, require wallet address
+  if (data.paymentMethod === 'USDC') {
+    return data.walletAddress && /^0x[a-fA-F0-9]{40}$/.test(data.walletAddress);
+  }
+  // For bank methods, require bank details
+  return (
+    data.bankName && data.bankName.length >= 2 &&
+    data.routingNumber && /^\d{9}$/.test(data.routingNumber) &&
+    data.accountNumber && /^\d{4,17}$/.test(data.accountNumber)
+  );
+}, {
+  message: 'Please provide valid payment details',
+  path: ['paymentMethod'],
 });
 
 type PayeeFormData = z.infer<typeof payeeSchema>;
@@ -259,6 +275,7 @@ interface AddPayeeFormProps {
 // ============================================================
 
 const paymentMethodLabels: Record<PaymentMethod, string> = {
+  USDC: 'USDC Direct (Instant)',
   WIRE: 'Wire Transfer (1-2 days)',
   ACH: 'ACH Transfer (2-3 days)',
   CHECK: 'Physical Check (5-7 days)',
@@ -319,10 +336,13 @@ export function AddPayeeForm({
           paymentMethod: data.paymentMethod,
           amount: data.usePercentage ? undefined : data.amount,
           basisPoints: data.usePercentage ? data.basisPoints : undefined,
-          bankName: data.bankName,
-          routingNumber: data.routingNumber,
-          accountNumber: data.accountNumber,
-          accountType: data.accountType,
+          // Bank details (for WIRE/ACH/CHECK)
+          bankName: data.paymentMethod !== 'USDC' ? data.bankName : undefined,
+          routingNumber: data.paymentMethod !== 'USDC' ? data.routingNumber : undefined,
+          accountNumber: data.paymentMethod !== 'USDC' ? data.accountNumber : undefined,
+          accountType: data.paymentMethod !== 'USDC' ? data.accountType : undefined,
+          // USDC wallet address
+          walletAddress: data.paymentMethod === 'USDC' ? data.walletAddress : undefined,
         }),
       });
 
@@ -530,75 +550,101 @@ export function AddPayeeForm({
             />
           </div>
 
-          {/* Bank Details */}
-          <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
-            <h4 className="font-medium text-blue-800 mb-3">
-              {selectedMethod === 'CHECK' ? 'Check Recipient Details' : 'Bank Account Details'}
-            </h4>
-            <p className="text-xs text-blue-600 mb-4">
-              🔒 Your bank information is encrypted and securely tokenized. We never store full account numbers.
-            </p>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2 md:col-span-2">
-                <Label htmlFor="bankName">Bank Name</Label>
-                <Input
-                  id="bankName"
-                  placeholder="Chase Bank"
-                  {...register('bankName')}
-                  className={cn(errors.bankName && 'border-red-500')}
-                />
-                {errors.bankName && (
-                  <p className="text-xs text-red-500">{errors.bankName.message}</p>
-                )}
-              </div>
+          {/* Payment Details - USDC or Bank */}
+          {selectedMethod === 'USDC' ? (
+            <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
+              <h4 className="font-medium text-blue-800 mb-3">
+                USDC Wallet Address
+              </h4>
+              <p className="text-xs text-blue-600 mb-4">
+                💎 USDC will be sent directly to this wallet on Base network. Instant settlement with no fees.
+              </p>
               <div className="space-y-2">
-                <Label htmlFor="routingNumber">Routing Number (ABA)</Label>
+                <Label htmlFor="walletAddress">Wallet Address (Base Network)</Label>
                 <Input
-                  id="routingNumber"
-                  placeholder="021000021"
-                  maxLength={9}
-                  {...register('routingNumber')}
-                  className={cn(errors.routingNumber && 'border-red-500')}
+                  id="walletAddress"
+                  placeholder="0x..."
+                  {...register('walletAddress')}
+                  className={cn('font-mono', errors.walletAddress && 'border-red-500')}
                 />
-                {errors.routingNumber && (
-                  <p className="text-xs text-red-500">{errors.routingNumber.message}</p>
+                {errors.walletAddress && (
+                  <p className="text-xs text-red-500">{errors.walletAddress.message}</p>
                 )}
+                <p className="text-xs text-slate-500">
+                  Must be a valid Ethereum address (0x followed by 40 hex characters)
+                </p>
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="accountNumber">Account Number</Label>
-                <Input
-                  id="accountNumber"
-                  placeholder="123456789"
-                  type="password"
-                  {...register('accountNumber')}
-                  className={cn(errors.accountNumber && 'border-red-500')}
-                />
-                {errors.accountNumber && (
-                  <p className="text-xs text-red-500">{errors.accountNumber.message}</p>
-                )}
-              </div>
-              {selectedMethod === 'ACH' && (
-                <div className="space-y-2">
-                  <Label>Account Type</Label>
-                  <Controller
-                    name="accountType"
-                    control={control}
-                    render={({ field }) => (
-                      <Select onValueChange={field.onChange} value={field.value}>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select type" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="checking">Checking</SelectItem>
-                          <SelectItem value="savings">Savings</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    )}
-                  />
-                </div>
-              )}
             </div>
-          </div>
+          ) : (
+            <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
+              <h4 className="font-medium text-blue-800 mb-3">
+                {selectedMethod === 'CHECK' ? 'Check Recipient Details' : 'Bank Account Details'}
+              </h4>
+              <p className="text-xs text-blue-600 mb-4">
+                🔒 Your bank information is encrypted and securely tokenized. We never store full account numbers.
+              </p>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2 md:col-span-2">
+                  <Label htmlFor="bankName">Bank Name</Label>
+                  <Input
+                    id="bankName"
+                    placeholder="Chase Bank"
+                    {...register('bankName')}
+                    className={cn(errors.bankName && 'border-red-500')}
+                  />
+                  {errors.bankName && (
+                    <p className="text-xs text-red-500">{errors.bankName.message}</p>
+                  )}
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="routingNumber">Routing Number (ABA)</Label>
+                  <Input
+                    id="routingNumber"
+                    placeholder="021000021"
+                    maxLength={9}
+                    {...register('routingNumber')}
+                    className={cn(errors.routingNumber && 'border-red-500')}
+                  />
+                  {errors.routingNumber && (
+                    <p className="text-xs text-red-500">{errors.routingNumber.message}</p>
+                  )}
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="accountNumber">Account Number</Label>
+                  <Input
+                    id="accountNumber"
+                    placeholder="123456789"
+                    type="password"
+                    {...register('accountNumber')}
+                    className={cn(errors.accountNumber && 'border-red-500')}
+                  />
+                  {errors.accountNumber && (
+                    <p className="text-xs text-red-500">{errors.accountNumber.message}</p>
+                  )}
+                </div>
+                {selectedMethod === 'ACH' && (
+                  <div className="space-y-2">
+                    <Label>Account Type</Label>
+                    <Controller
+                      name="accountType"
+                      control={control}
+                      render={({ field }) => (
+                        <Select onValueChange={field.onChange} value={field.value}>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select type" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="checking">Checking</SelectItem>
+                            <SelectItem value="savings">Savings</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      )}
+                    />
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
 
           {/* Actions */}
           <div className="flex justify-end gap-3 pt-4 border-t">
