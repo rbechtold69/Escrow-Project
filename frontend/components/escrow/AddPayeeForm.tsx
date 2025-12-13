@@ -2,8 +2,6 @@
 
 import { useState } from 'react';
 import { useForm, Controller } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { z } from 'zod';
 import { 
   PlusCircle, 
   User, 
@@ -225,26 +223,22 @@ const payeeTypeIcons: Record<PayeeType, React.ReactNode> = {
 
 const allPayeeTypes = Object.keys(payeeTypeLabels) as PayeeType[];
 
-// Simple schema without complex refinement - validation handled in onSubmit
-const payeeSchema = z.object({
-  firstName: z.string().min(1, 'First name is required'),
-  lastName: z.string().min(1, 'Last name is required'),
-  email: z.string().email('Valid email required').optional().or(z.literal('')),
-  payeeType: z.enum(allPayeeTypes as [PayeeType, ...PayeeType[]]),
-  paymentMethod: z.enum(['WIRE', 'ACH', 'CHECK', 'USDC']),
-  amount: z.number().positive('Amount must be positive').optional().nullable(),
-  basisPoints: z.number().min(0).max(10000).optional().nullable(),
-  usePercentage: z.boolean().default(false),
-  // Bank details (for WIRE/ACH/CHECK)
-  bankName: z.string().optional(),
-  routingNumber: z.string().optional(),
-  accountNumber: z.string().optional(),
-  accountType: z.enum(['checking', 'savings']).default('checking'),
-  // USDC wallet address (for USDC)
-  walletAddress: z.string().optional(),
-});
-
-type PayeeFormData = z.infer<typeof payeeSchema>;
+// Form data type
+interface PayeeFormData {
+  firstName: string;
+  lastName: string;
+  email?: string;
+  payeeType: PayeeType;
+  paymentMethod: PaymentMethod;
+  amount?: number;
+  basisPoints?: number;
+  usePercentage: boolean;
+  bankName?: string;
+  routingNumber?: string;
+  accountNumber?: string;
+  accountType: 'checking' | 'savings';
+  walletAddress?: string;
+}
 
 // ============================================================
 // Component Props
@@ -288,12 +282,20 @@ export function AddPayeeForm({
     setValue,
     formState: { errors, isSubmitting },
   } = useForm<PayeeFormData>({
-    resolver: zodResolver(payeeSchema),
     defaultValues: {
+      firstName: '',
+      lastName: '',
+      email: '',
       paymentMethod: 'WIRE',
       payeeType: 'SELLER',
       usePercentage: false,
       accountType: 'checking',
+      bankName: '',
+      routingNumber: '',
+      accountNumber: '',
+      walletAddress: '',
+      amount: undefined,
+      basisPoints: undefined,
     },
   });
 
@@ -307,7 +309,18 @@ export function AddPayeeForm({
     : null;
 
   const onSubmit = async (data: PayeeFormData) => {
+    console.log('Form submitted with data:', data);
     setSubmitError(null);
+
+    // Basic field validation
+    if (!data.firstName || data.firstName.trim().length === 0) {
+      setSubmitError('Please enter a first name');
+      return;
+    }
+    if (!data.lastName || data.lastName.trim().length === 0) {
+      setSubmitError('Please enter a last name');
+      return;
+    }
     
     // Manual validation for payment-specific fields
     if (data.paymentMethod === 'USDC') {
@@ -394,7 +407,10 @@ export function AddPayeeForm({
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+        <form onSubmit={handleSubmit(onSubmit, (errors) => {
+          console.error('Form validation errors:', errors);
+          setSubmitError('Form validation failed. Please check all required fields.');
+        })} className="space-y-6">
           {submitError && (
             <Alert variant="destructive">
               <AlertDescription>{submitError}</AlertDescription>
