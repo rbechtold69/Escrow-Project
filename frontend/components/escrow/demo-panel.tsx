@@ -4,7 +4,6 @@ import { useState, useEffect } from 'react';
 import { 
   Beaker, 
   DollarSign, 
-  TrendingUp, 
   CheckCircle2, 
   Loader2,
   ChevronDown,
@@ -38,9 +37,7 @@ export function DemoPanel({
   const [mounted, setMounted] = useState(false);
   const [isOpen, setIsOpen] = useState(true);
   const [isSimulatingDeposit, setIsSimulatingDeposit] = useState(false);
-  const [isSimulatingYield, setIsSimulatingYield] = useState(false);
   const [depositAmount, setDepositAmount] = useState(purchasePrice.toString());
-  const [yieldDays, setYieldDays] = useState('30');
 
   // Prevent hydration mismatch
   useEffect(() => {
@@ -69,7 +66,7 @@ export function DemoPanel({
       const result = await response.json();
       toast({
         title: '✓ Deposit Simulated',
-        description: `$${parseFloat(depositAmount).toLocaleString()} deposited successfully`,
+        description: `$${parseFloat(depositAmount).toLocaleString()} USDC deposited successfully`,
       });
       onAction();
     } catch (error: any) {
@@ -83,39 +80,7 @@ export function DemoPanel({
     }
   };
 
-  const handleSimulateYield = async () => {
-    setIsSimulatingYield(true);
-    try {
-      const response = await fetch(`/api/escrow/${escrowId}/simulate-yield`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ days: parseInt(yieldDays) }),
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Failed to simulate yield');
-      }
-
-      const result = await response.json();
-      toast({
-        title: '✓ Yield Simulated',
-        description: `+$${result.yieldInfo.yieldAmount.toFixed(2)} accrued over ${yieldDays} days`,
-      });
-      onAction();
-    } catch (error: any) {
-      toast({
-        title: 'Error',
-        description: error.message,
-        variant: 'destructive',
-      });
-    } finally {
-      setIsSimulatingYield(false);
-    }
-  };
-
   const canSimulateDeposit = status === 'CREATED' || status === 'DEPOSIT_PENDING';
-  const canSimulateYield = status === 'FUNDS_RECEIVED' || status === 'READY_TO_CLOSE';
 
   return (
     <Collapsible open={isOpen} onOpenChange={setIsOpen}>
@@ -163,7 +128,7 @@ export function DemoPanel({
               <div className="flex gap-3">
                 <div className="flex-1">
                   <Label htmlFor="depositAmount" className="text-xs text-slate-500">
-                    Amount (USD)
+                    Amount (USDC)
                   </Label>
                   <div className="relative">
                     <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">$</span>
@@ -193,49 +158,15 @@ export function DemoPanel({
                 </Button>
               </div>
               <p className="text-xs text-slate-500 mt-2">
-                Simulates a buyer wire transfer arriving in the escrow account
+                Simulates a buyer wire transfer arriving as USDC in the escrow Safe
               </p>
             </div>
 
-            {/* Simulate Yield */}
-            <div className={`p-4 rounded-lg border ${canSimulateYield ? 'bg-white' : 'bg-slate-50 opacity-60'}`}>
-              <div className="flex items-center gap-2 mb-3">
-                <TrendingUp className="h-4 w-4 text-amber-600" />
-                <span className="font-medium">Simulate Treasury Yield</span>
-                {!canSimulateYield && (
-                  <Badge variant="outline" className="text-xs">Deposit Required First</Badge>
-                )}
-              </div>
-              <div className="flex gap-3">
-                <div className="flex-1">
-                  <Label htmlFor="yieldDays" className="text-xs text-slate-500">
-                    Days to Simulate (5% APY)
-                  </Label>
-                  <Input
-                    id="yieldDays"
-                    type="number"
-                    value={yieldDays}
-                    onChange={(e) => setYieldDays(e.target.value)}
-                    disabled={!canSimulateYield}
-                  />
-                </div>
-                <Button
-                  onClick={handleSimulateYield}
-                  disabled={!canSimulateYield || isSimulatingYield}
-                  className="self-end bg-amber-600 hover:bg-amber-700"
-                >
-                  {isSimulatingYield ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <>
-                      <TrendingUp className="h-4 w-4 mr-1" />
-                      Simulate
-                    </>
-                  )}
-                </Button>
-              </div>
-              <p className="text-xs text-slate-500 mt-2">
-                Simulates yield accrual from US Treasury-backed investments
+            {/* Info Box */}
+            <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+              <p className="text-sm text-blue-800">
+                <strong>USDC Only:</strong> All funds remain as 1:1 liquid USDC in the Safe multisig 
+                for instant settlement. No swaps or lending.
               </p>
             </div>
 
@@ -244,31 +175,28 @@ export function DemoPanel({
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => {
-                  setDepositAmount(purchasePrice.toString());
-                  setYieldDays('30');
-                }}
+                onClick={() => setDepositAmount(purchasePrice.toString())}
                 className="text-purple-600 border-purple-200 hover:bg-purple-50"
               >
-                Reset to Defaults
+                Reset to Purchase Price
               </Button>
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => setYieldDays('90')}
-                disabled={!canSimulateYield}
+                onClick={() => setDepositAmount((purchasePrice * 0.1).toString())}
+                disabled={!canSimulateDeposit}
                 className="text-purple-600 border-purple-200 hover:bg-purple-50"
               >
-                90-Day Escrow
+                10% Earnest Money
               </Button>
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => setYieldDays('180')}
-                disabled={!canSimulateYield}
+                onClick={() => setDepositAmount((purchasePrice * 0.03).toString())}
+                disabled={!canSimulateDeposit}
                 className="text-purple-600 border-purple-200 hover:bg-purple-50"
               >
-                180-Day Escrow
+                3% Deposit
               </Button>
             </div>
           </CardContent>
@@ -277,4 +205,3 @@ export function DemoPanel({
     </Collapsible>
   );
 }
-

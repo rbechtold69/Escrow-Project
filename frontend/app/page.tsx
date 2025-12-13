@@ -2,12 +2,26 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { Plus, Search, Building2, DollarSign, Clock, CheckCircle2, XCircle, AlertCircle } from 'lucide-react';
+import { useAccount, useConnect } from 'wagmi';
+import { 
+  Plus, 
+  Search, 
+  Building2, 
+  DollarSign, 
+  Clock, 
+  CheckCircle2, 
+  XCircle, 
+  AlertCircle,
+  Shield,
+  TrendingUp,
+  Users,
+  ArrowRight,
+  Sparkles,
+} from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { useAccount } from 'wagmi';
 
 type EscrowStatus = 'CREATED' | 'FUNDS_RECEIVED' | 'READY_TO_CLOSE' | 'CLOSED' | 'CANCELLED';
 
@@ -30,8 +44,9 @@ const statusConfig: Record<EscrowStatus, { label: string; color: string; icon: R
   CANCELLED: { label: 'Cancelled', color: 'bg-red-100 text-red-800', icon: XCircle },
 };
 
-export default function Dashboard() {
+export default function HomePage() {
   const { address, isConnected } = useAccount();
+  const { connect, connectors, isPending } = useConnect();
   const [mounted, setMounted] = useState(false);
   const [escrows, setEscrows] = useState<Escrow[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -107,7 +122,14 @@ export default function Dashboard() {
     });
   };
 
-  // Show loading state until mounted to prevent hydration mismatch
+  const handleSignIn = () => {
+    const coinbaseConnector = connectors.find(c => c.id === 'coinbaseWalletSDK');
+    if (coinbaseConnector) {
+      connect({ connector: coinbaseConnector });
+    }
+  };
+
+  // Show loading state until mounted
   if (!mounted) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
@@ -119,22 +141,116 @@ export default function Dashboard() {
     );
   }
 
+  // ====================================================
+  // LANDING PAGE - Show when NOT logged in
+  // ====================================================
   if (!isConnected) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[60vh] gap-6">
-        <div className="text-center space-y-2">
-          <h1 className="text-3xl font-bold text-gray-900">Welcome to EscrowBase</h1>
-          <p className="text-gray-600 max-w-md">
-            Modern real estate escrow powered by secure technology. Sign in to get started.
+      <div className="min-h-[80vh] flex flex-col">
+        {/* Hero Section */}
+        <div className="flex-1 flex flex-col items-center justify-center text-center px-4 py-16">
+          <Badge className="mb-6 bg-blue-100 text-blue-700 hover:bg-blue-100">
+            <Sparkles className="h-3 w-3 mr-1" />
+            Earn 5% APY on Escrow Funds
+          </Badge>
+          
+          <h1 className="text-4xl md:text-5xl font-bold text-gray-900 mb-4 max-w-3xl">
+            Modern Real Estate Escrow
+            <span className="text-blue-600"> That Works for You</span>
+          </h1>
+          
+          <p className="text-xl text-gray-600 max-w-2xl mb-10">
+            Secure, transparent escrow management with yield generation. 
+            Your funds work while they wait, earning returns backed by US Treasury investments.
           </p>
+
+          {/* Auth Buttons */}
+          <div className="flex flex-col sm:flex-row gap-4 mb-16">
+            <Button 
+              size="lg" 
+              onClick={handleSignIn}
+              disabled={isPending}
+              className="bg-blue-600 hover:bg-blue-700 text-lg px-8 py-6"
+            >
+              {isPending ? 'Connecting...' : 'Sign In'}
+              <ArrowRight className="ml-2 h-5 w-5" />
+            </Button>
+            <Button 
+              size="lg" 
+              variant="outline"
+              onClick={handleSignIn}
+              disabled={isPending}
+              className="text-lg px-8 py-6"
+            >
+              Create Account
+            </Button>
+          </div>
+
+          {/* Features */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-4xl w-full">
+            <Card className="text-left">
+              <CardHeader className="pb-3">
+                <div className="p-2 bg-emerald-100 rounded-lg w-fit mb-2">
+                  <TrendingUp className="h-5 w-5 text-emerald-600" />
+                </div>
+                <CardTitle className="text-lg">Earn While You Wait</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-gray-600 text-sm">
+                  Escrow funds earn 5% APY from US Treasury-backed investments. 
+                  Buyers receive yield as closing cost credits.
+                </p>
+              </CardContent>
+            </Card>
+
+            <Card className="text-left">
+              <CardHeader className="pb-3">
+                <div className="p-2 bg-blue-100 rounded-lg w-fit mb-2">
+                  <Shield className="h-5 w-5 text-blue-600" />
+                </div>
+                <CardTitle className="text-lg">Bank-Grade Security</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-gray-600 text-sm">
+                  We never store bank account numbers. All sensitive data is 
+                  tokenized and secured by SOC 2 compliant infrastructure.
+                </p>
+              </CardContent>
+            </Card>
+
+            <Card className="text-left">
+              <CardHeader className="pb-3">
+                <div className="p-2 bg-purple-100 rounded-lg w-fit mb-2">
+                  <Users className="h-5 w-5 text-purple-600" />
+                </div>
+                <CardTitle className="text-lg">Complete Transparency</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-gray-600 text-sm">
+                  Real-time status updates for all parties. Track funds, 
+                  payees, and disbursements from anywhere.
+                </p>
+              </CardContent>
+            </Card>
+          </div>
         </div>
-        <Button size="lg" className="bg-blue-600 hover:bg-blue-700">
-          Sign In or Create Account
-        </Button>
+
+        {/* Trust Indicators */}
+        <div className="border-t py-8 text-center text-gray-500 text-sm">
+          <p>Trusted by escrow professionals across the country</p>
+          <div className="flex justify-center items-center gap-8 mt-4 text-gray-400">
+            <span>🔒 SOC 2 Compliant</span>
+            <span>🏦 FDIC Insured Partner</span>
+            <span>⚡ Real-time Updates</span>
+          </div>
+        </div>
       </div>
     );
   }
 
+  // ====================================================
+  // DASHBOARD - Show when logged in
+  // ====================================================
   return (
     <div className="space-y-8">
       {/* Stats Overview */}

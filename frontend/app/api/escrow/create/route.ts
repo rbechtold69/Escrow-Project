@@ -14,9 +14,9 @@ const CreateEscrowSchema = z.object({
   state: z.string().optional(),
   zipCode: z.string().optional(),
   purchasePrice: z.number().positive('Purchase price must be positive'),
-  buyerFirstName: z.string().optional().default('Pending'),
-  buyerLastName: z.string().optional().default('Buyer'),
-  buyerEmail: z.string().email().optional().default('pending@example.com'),
+  buyerFirstName: z.string().min(1, 'Buyer first name is required'),
+  buyerLastName: z.string().min(1, 'Buyer last name is required'),
+  buyerEmail: z.string().email('Valid buyer email is required'),
   officerAddress: z.string().optional(),
 });
 

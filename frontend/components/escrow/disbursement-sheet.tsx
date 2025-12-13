@@ -16,7 +16,6 @@ import {
   Edit,
   ChevronDown,
   ChevronUp,
-  TrendingUp,
   Shield,
   Home,
 } from 'lucide-react';
@@ -71,7 +70,6 @@ interface DisbursementSheetProps {
   escrowId: string;
   purchasePrice: number;
   currentBalance: number;
-  accruedYield: number;
   buyerName?: string;
   payees: Payee[];
   onAddPayee: (payee: unknown) => Promise<void>;
@@ -131,7 +129,6 @@ export function DisbursementSheet({
   escrowId,
   purchasePrice,
   currentBalance,
-  accruedYield,
   buyerName,
   payees,
   onAddPayee,
@@ -151,7 +148,6 @@ export function DisbursementSheet({
   }, 0);
 
   const remainingBalance = currentBalance - totalDisbursements;
-  const buyerRebate = accruedYield;
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-US', {
@@ -171,21 +167,15 @@ export function DisbursementSheet({
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
             <div>
               <p className="text-xs text-slate-400 uppercase tracking-wide">Purchase Price</p>
               <p className="text-xl font-semibold">{formatCurrency(purchasePrice)}</p>
             </div>
             <div>
-              <p className="text-xs text-slate-400 uppercase tracking-wide">Current Balance</p>
+              <p className="text-xs text-slate-400 uppercase tracking-wide">USDC Balance</p>
               <p className="text-xl font-semibold text-emerald-400">
                 {formatCurrency(currentBalance)}
-              </p>
-            </div>
-            <div>
-              <p className="text-xs text-slate-400 uppercase tracking-wide">Accrued Yield</p>
-              <p className="text-xl font-semibold text-amber-400">
-                +{formatCurrency(accruedYield)}
               </p>
             </div>
             <div>
@@ -203,15 +193,10 @@ export function DisbursementSheet({
                 className="bg-blue-500 transition-all"
                 style={{ width: `${Math.min((totalDisbursements / (currentBalance || 1)) * 100, 100)}%` }}
               />
-              <div
-                className="bg-amber-500 transition-all"
-                style={{ width: `${Math.min((accruedYield / (currentBalance || 1)) * 100, 100)}%` }}
-              />
               <div className="bg-emerald-500 flex-1" />
             </div>
             <div className="flex justify-between mt-2 text-xs text-slate-400">
               <span>Payees: {formatCurrency(totalDisbursements)}</span>
-              <span>Buyer Rebate: {formatCurrency(buyerRebate)}</span>
               <span>Remaining: {formatCurrency(Math.max(remainingBalance, 0))}</span>
             </div>
           </div>
@@ -274,31 +259,6 @@ export function DisbursementSheet({
                 formatCurrency={formatCurrency}
               />
             ))
-          )}
-
-          {/* Buyer Yield Rebate */}
-          {buyerName && accruedYield > 0 && (
-            <div className="mt-4 p-4 bg-amber-50 rounded-lg border border-amber-200">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 bg-amber-100 rounded-lg">
-                    <TrendingUp className="h-5 w-5 text-amber-600" />
-                  </div>
-                  <div>
-                    <p className="font-medium text-amber-900">Buyer Yield Rebate</p>
-                    <p className="text-sm text-amber-600">
-                      {buyerName}
-                    </p>
-                  </div>
-                </div>
-                <div className="text-right">
-                  <p className="text-lg font-semibold text-amber-900">
-                    +{formatCurrency(accruedYield)}
-                  </p>
-                  <p className="text-xs text-amber-600">Treasury yield earned</p>
-                </div>
-              </div>
-            </div>
           )}
         </CardContent>
       </Card>

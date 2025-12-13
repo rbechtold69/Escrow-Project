@@ -2,14 +2,14 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { useAccount, useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
-import { ArrowLeft, Building2, Loader2, Copy, Download, CheckCircle2 } from 'lucide-react';
-import Link from 'next/link';
+import { useAccount } from 'wagmi';
+import { ArrowLeft, Building2, Loader2, Copy, Download, CheckCircle2, Mail, User } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { useToast } from '@/hooks/use-toast';
 
 interface WiringInstructions {
   accountNumber: string;
@@ -27,21 +27,28 @@ type FormStep = 'details' | 'creating' | 'wiring';
 export default function NewEscrowPage() {
   const router = useRouter();
   const { address, isConnected } = useAccount();
+  const { toast } = useToast();
   
   const [mounted, setMounted] = useState(false);
   const [step, setStep] = useState<FormStep>('details');
   const [formData, setFormData] = useState({
+    // Property Details
     propertyAddress: '',
     city: '',
     state: '',
     zipCode: '',
     purchasePrice: '',
+    // Buyer Details
+    buyerFirstName: '',
+    buyerLastName: '',
+    buyerEmail: '',
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [wiringInstructions, setWiringInstructions] = useState<WiringInstructions | null>(null);
   const [escrowId, setEscrowId] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [copied, setCopied] = useState<string | null>(null);
+  const [isSendingEmail, setIsSendingEmail] = useState(false);
 
   // Prevent hydration mismatch
   useEffect(() => {
@@ -51,6 +58,7 @@ export default function NewEscrowPage() {
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
     
+    // Property validation
     if (!formData.propertyAddress.trim()) {
       newErrors.propertyAddress = 'Property address is required';
     }
@@ -74,6 +82,19 @@ export default function NewEscrowPage() {
       } else if (price < 10000) {
         newErrors.purchasePrice = 'Minimum purchase price is $10,000';
       }
+    }
+
+    // Buyer validation
+    if (!formData.buyerFirstName.trim()) {
+      newErrors.buyerFirstName = 'Buyer first name is required';
+    }
+    if (!formData.buyerLastName.trim()) {
+      newErrors.buyerLastName = 'Buyer last name is required';
+    }
+    if (!formData.buyerEmail.trim()) {
+      newErrors.buyerEmail = 'Buyer email is required';
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.buyerEmail)) {
+      newErrors.buyerEmail = 'Enter a valid email address';
     }
     
     setErrors(newErrors);
@@ -99,7 +120,13 @@ export default function NewEscrowPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           propertyAddress: fullAddress,
+          city: formData.city,
+          state: formData.state,
+          zipCode: formData.zipCode,
           purchasePrice,
+          buyerFirstName: formData.buyerFirstName,
+          buyerLastName: formData.buyerLastName,
+          buyerEmail: formData.buyerEmail,
           officerAddress: address,
         }),
       });
@@ -129,22 +156,40 @@ export default function NewEscrowPage() {
     setTimeout(() => setCopied(null), 2000);
   };
 
+  const handleEmailToBuyer = async () => {
+    if (!escrowId || !wiringInstructions) return;
+    
+    setIsSendingEmail(true);
+    
+    // In a real app, this would call an API to send the email
+    // For demo purposes, we'll just show a success message
+    try {
+      // Simulate API call
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      toast({
+        title: 'Email Sent!',
+        description: `Wiring instructions sent to ${formData.buyerEmail}`,
+      });
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: 'Failed to send email. Please try again.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsSendingEmail(false);
+    }
+  };
+
   const downloadPDF = async () => {
     if (!escrowId) return;
     
-    // Generate PDF on backend
-    const response = await fetch(`/api/escrow/${escrowId}/wiring-pdf`);
-    if (response.ok) {
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `wiring-instructions-${escrowId.slice(0, 8)}.pdf`;
-      document.body.appendChild(a);
-      a.click();
-      window.URL.revokeObjectURL(url);
-      document.body.removeChild(a);
-    }
+    // For demo, show a message that PDF download is coming
+    toast({
+      title: 'Coming Soon',
+      description: 'PDF download will be available in the full version.',
+    });
   };
 
   const formatPrice = (value: string) => {
@@ -186,11 +231,9 @@ export default function NewEscrowPage() {
     <div className="max-w-2xl mx-auto space-y-6">
       {/* Header */}
       <div className="flex items-center gap-4">
-        <Link href="/">
-          <Button variant="ghost" size="icon">
-            <ArrowLeft className="h-5 w-5" />
-          </Button>
-        </Link>
+        <Button variant="ghost" size="icon" onClick={() => router.push('/')}>
+          <ArrowLeft className="h-5 w-5" />
+        </Button>
         <div>
           <h1 className="text-2xl font-bold text-gray-900">New Escrow</h1>
           <p className="text-gray-600">Create a new property escrow</p>
@@ -199,7 +242,7 @@ export default function NewEscrowPage() {
 
       {/* Progress Steps */}
       <div className="flex items-center gap-2">
-        {['Property Details', 'Creating Escrow', 'Wiring Instructions'].map((label, index) => {
+        {['Property & Buyer Details', 'Creating Escrow', 'Wiring Instructions'].map((label, index) => {
           const stepIndex = ['details', 'creating', 'wiring'].indexOf(step);
           const isActive = index === stepIndex;
           const isComplete = index < stepIndex;
@@ -214,7 +257,7 @@ export default function NewEscrowPage() {
               `}>
                 {isComplete ? <CheckCircle2 className="h-5 w-5" /> : index + 1}
               </div>
-              <span className={`text-sm ${isActive ? 'text-gray-900 font-medium' : 'text-gray-500'}`}>
+              <span className={`text-sm hidden sm:inline ${isActive ? 'text-gray-900 font-medium' : 'text-gray-500'}`}>
                 {label}
               </span>
               {index < 2 && <div className="flex-1 h-px bg-gray-200" />}
@@ -225,111 +268,171 @@ export default function NewEscrowPage() {
 
       {/* Step Content */}
       {step === 'details' && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Building2 className="h-5 w-5" />
-              Property Details
-            </CardTitle>
-            <CardDescription>
-              Enter the property information and purchase price
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-6">
-              <div className="space-y-4">
-                <div>
-                  <Label htmlFor="propertyAddress">Street Address</Label>
+        <form onSubmit={handleSubmit} className="space-y-6">
+          {/* Property Details Card */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Building2 className="h-5 w-5" />
+                Property Details
+              </CardTitle>
+              <CardDescription>
+                Enter the property information and purchase price
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div>
+                <Label htmlFor="propertyAddress">Street Address</Label>
+                <Input
+                  id="propertyAddress"
+                  placeholder="123 Main Street"
+                  value={formData.propertyAddress}
+                  onChange={(e) => setFormData(prev => ({ ...prev, propertyAddress: e.target.value }))}
+                  className={errors.propertyAddress ? 'border-red-500' : ''}
+                />
+                {errors.propertyAddress && (
+                  <p className="text-sm text-red-500 mt-1">{errors.propertyAddress}</p>
+                )}
+              </div>
+
+              <div className="grid grid-cols-6 gap-4">
+                <div className="col-span-3">
+                  <Label htmlFor="city">City</Label>
                   <Input
-                    id="propertyAddress"
-                    placeholder="123 Main Street"
-                    value={formData.propertyAddress}
-                    onChange={(e) => setFormData(prev => ({ ...prev, propertyAddress: e.target.value }))}
-                    className={errors.propertyAddress ? 'border-red-500' : ''}
+                    id="city"
+                    placeholder="Los Angeles"
+                    value={formData.city}
+                    onChange={(e) => setFormData(prev => ({ ...prev, city: e.target.value }))}
+                    className={errors.city ? 'border-red-500' : ''}
                   />
-                  {errors.propertyAddress && (
-                    <p className="text-sm text-red-500 mt-1">{errors.propertyAddress}</p>
+                  {errors.city && (
+                    <p className="text-sm text-red-500 mt-1">{errors.city}</p>
                   )}
                 </div>
-
-                <div className="grid grid-cols-6 gap-4">
-                  <div className="col-span-3">
-                    <Label htmlFor="city">City</Label>
-                    <Input
-                      id="city"
-                      placeholder="Los Angeles"
-                      value={formData.city}
-                      onChange={(e) => setFormData(prev => ({ ...prev, city: e.target.value }))}
-                      className={errors.city ? 'border-red-500' : ''}
-                    />
-                    {errors.city && (
-                      <p className="text-sm text-red-500 mt-1">{errors.city}</p>
-                    )}
-                  </div>
-                  <div className="col-span-1">
-                    <Label htmlFor="state">State</Label>
-                    <Input
-                      id="state"
-                      placeholder="CA"
-                      maxLength={2}
-                      value={formData.state}
-                      onChange={(e) => setFormData(prev => ({ ...prev, state: e.target.value.toUpperCase() }))}
-                      className={errors.state ? 'border-red-500' : ''}
-                    />
-                    {errors.state && (
-                      <p className="text-sm text-red-500 mt-1">{errors.state}</p>
-                    )}
-                  </div>
-                  <div className="col-span-2">
-                    <Label htmlFor="zipCode">ZIP Code</Label>
-                    <Input
-                      id="zipCode"
-                      placeholder="90210"
-                      value={formData.zipCode}
-                      onChange={(e) => setFormData(prev => ({ ...prev, zipCode: e.target.value }))}
-                      className={errors.zipCode ? 'border-red-500' : ''}
-                    />
-                    {errors.zipCode && (
-                      <p className="text-sm text-red-500 mt-1">{errors.zipCode}</p>
-                    )}
-                  </div>
-                </div>
-
-                <div>
-                  <Label htmlFor="purchasePrice">Purchase Price</Label>
+                <div className="col-span-1">
+                  <Label htmlFor="state">State</Label>
                   <Input
-                    id="purchasePrice"
-                    placeholder="$500,000"
-                    value={formData.purchasePrice}
-                    onChange={(e) => setFormData(prev => ({ 
-                      ...prev, 
-                      purchasePrice: formatPrice(e.target.value) 
-                    }))}
-                    className={errors.purchasePrice ? 'border-red-500' : ''}
+                    id="state"
+                    placeholder="CA"
+                    maxLength={2}
+                    value={formData.state}
+                    onChange={(e) => setFormData(prev => ({ ...prev, state: e.target.value.toUpperCase() }))}
+                    className={errors.state ? 'border-red-500' : ''}
                   />
-                  {errors.purchasePrice && (
-                    <p className="text-sm text-red-500 mt-1">{errors.purchasePrice}</p>
+                  {errors.state && (
+                    <p className="text-sm text-red-500 mt-1">{errors.state}</p>
+                  )}
+                </div>
+                <div className="col-span-2">
+                  <Label htmlFor="zipCode">ZIP Code</Label>
+                  <Input
+                    id="zipCode"
+                    placeholder="90210"
+                    value={formData.zipCode}
+                    onChange={(e) => setFormData(prev => ({ ...prev, zipCode: e.target.value }))}
+                    className={errors.zipCode ? 'border-red-500' : ''}
+                  />
+                  {errors.zipCode && (
+                    <p className="text-sm text-red-500 mt-1">{errors.zipCode}</p>
                   )}
                 </div>
               </div>
 
-              {errors.submit && (
-                <Alert variant="destructive">
-                  <AlertDescription>{errors.submit}</AlertDescription>
-                </Alert>
-              )}
-
-              <div className="flex justify-end gap-3">
-                <Link href="/">
-                  <Button variant="outline">Cancel</Button>
-                </Link>
-                <Button type="submit" className="bg-blue-600 hover:bg-blue-700">
-                  Create Escrow
-                </Button>
+              <div>
+                <Label htmlFor="purchasePrice">Purchase Price</Label>
+                <Input
+                  id="purchasePrice"
+                  placeholder="$500,000"
+                  value={formData.purchasePrice}
+                  onChange={(e) => setFormData(prev => ({ 
+                    ...prev, 
+                    purchasePrice: formatPrice(e.target.value) 
+                  }))}
+                  className={errors.purchasePrice ? 'border-red-500' : ''}
+                />
+                {errors.purchasePrice && (
+                  <p className="text-sm text-red-500 mt-1">{errors.purchasePrice}</p>
+                )}
               </div>
-            </form>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+
+          {/* Buyer Details Card */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <User className="h-5 w-5" />
+                Buyer Information
+              </CardTitle>
+              <CardDescription>
+                Enter the buyer's details to send them wiring instructions
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="buyerFirstName">First Name</Label>
+                  <Input
+                    id="buyerFirstName"
+                    placeholder="John"
+                    value={formData.buyerFirstName}
+                    onChange={(e) => setFormData(prev => ({ ...prev, buyerFirstName: e.target.value }))}
+                    className={errors.buyerFirstName ? 'border-red-500' : ''}
+                  />
+                  {errors.buyerFirstName && (
+                    <p className="text-sm text-red-500 mt-1">{errors.buyerFirstName}</p>
+                  )}
+                </div>
+                <div>
+                  <Label htmlFor="buyerLastName">Last Name</Label>
+                  <Input
+                    id="buyerLastName"
+                    placeholder="Smith"
+                    value={formData.buyerLastName}
+                    onChange={(e) => setFormData(prev => ({ ...prev, buyerLastName: e.target.value }))}
+                    className={errors.buyerLastName ? 'border-red-500' : ''}
+                  />
+                  {errors.buyerLastName && (
+                    <p className="text-sm text-red-500 mt-1">{errors.buyerLastName}</p>
+                  )}
+                </div>
+              </div>
+
+              <div>
+                <Label htmlFor="buyerEmail">Email Address</Label>
+                <Input
+                  id="buyerEmail"
+                  type="email"
+                  placeholder="john.smith@email.com"
+                  value={formData.buyerEmail}
+                  onChange={(e) => setFormData(prev => ({ ...prev, buyerEmail: e.target.value }))}
+                  className={errors.buyerEmail ? 'border-red-500' : ''}
+                />
+                {errors.buyerEmail && (
+                  <p className="text-sm text-red-500 mt-1">{errors.buyerEmail}</p>
+                )}
+                <p className="text-xs text-gray-500 mt-1">
+                  We'll use this to send the buyer their wiring instructions
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+
+          {errors.submit && (
+            <Alert variant="destructive">
+              <AlertDescription>{errors.submit}</AlertDescription>
+            </Alert>
+          )}
+
+          <div className="flex justify-end gap-3">
+            <Button type="button" variant="outline" onClick={() => router.push('/')}>
+              Cancel
+            </Button>
+            <Button type="submit" className="bg-blue-600 hover:bg-blue-700">
+              Create Escrow
+            </Button>
+          </div>
+        </form>
       )}
 
       {step === 'creating' && (
@@ -358,12 +461,34 @@ export default function NewEscrowPage() {
               <div>
                 <CardTitle>Escrow Created Successfully</CardTitle>
                 <CardDescription>
-                  Share these wiring instructions with the buyer
+                  Wiring instructions ready for {formData.buyerFirstName} {formData.buyerLastName}
                 </CardDescription>
               </div>
             </div>
           </CardHeader>
           <CardContent className="space-y-6">
+            {/* Buyer Info Summary */}
+            <div className="bg-gray-50 rounded-lg p-4 flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-500">Buyer</p>
+                <p className="font-medium">{formData.buyerFirstName} {formData.buyerLastName}</p>
+                <p className="text-sm text-gray-600">{formData.buyerEmail}</p>
+              </div>
+              <Button 
+                onClick={handleEmailToBuyer}
+                disabled={isSendingEmail}
+                className="bg-emerald-600 hover:bg-emerald-700"
+              >
+                {isSendingEmail ? (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <Mail className="h-4 w-4 mr-2" />
+                )}
+                Email Instructions
+              </Button>
+            </div>
+
+            {/* Wiring Instructions */}
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
               <h4 className="font-medium text-blue-900 mb-3">Wire Transfer Instructions</h4>
               <div className="space-y-3">
@@ -411,11 +536,12 @@ export default function NewEscrowPage() {
                 <Download className="h-4 w-4 mr-2" />
                 Download PDF
               </Button>
-              <Link href={`/escrow/${escrowId}`}>
-                <Button className="bg-blue-600 hover:bg-blue-700">
-                  View Escrow Dashboard
-                </Button>
-              </Link>
+              <Button 
+                className="bg-blue-600 hover:bg-blue-700"
+                onClick={() => router.push(`/escrow/${escrowId}`)}
+              >
+                View Escrow Dashboard
+              </Button>
             </div>
           </CardContent>
         </Card>

@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useAccount, useConnect, useDisconnect } from 'wagmi';
-import { Building2, LogOut, ChevronDown, User } from 'lucide-react';
+import { Building2, LogOut, ChevronDown, LayoutDashboard } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -31,6 +31,8 @@ export function Navbar() {
     }
   };
 
+  const showAuthenticatedNav = mounted && isConnected && address;
+
   return (
     <nav className="bg-white border-b border-gray-200 sticky top-0 z-50">
       <div className="container mx-auto px-4">
@@ -43,27 +45,18 @@ export function Navbar() {
             <span className="font-bold text-xl text-gray-900">EscrowBase</span>
           </Link>
 
-          {/* Navigation Links */}
-          <div className="hidden md:flex items-center gap-6">
-            <Link 
-              href="/" 
-              className="text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors"
-            >
-              Dashboard
-            </Link>
-            <Link 
-              href="/escrow/new" 
-              className="text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors"
-            >
-              New Escrow
-            </Link>
-            <Link 
-              href="/settings" 
-              className="text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors"
-            >
-              Settings
-            </Link>
-          </div>
+          {/* Navigation Links - Only show when authenticated */}
+          {showAuthenticatedNav && (
+            <div className="hidden md:flex items-center gap-6">
+              <Link 
+                href="/" 
+                className="text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors flex items-center gap-1.5"
+              >
+                <LayoutDashboard className="h-4 w-4" />
+                Dashboard
+              </Link>
+            </div>
+          )}
 
           {/* Account Connection */}
           <div className="flex items-center gap-4">
@@ -85,13 +78,16 @@ export function Navbar() {
                     <p className="text-xs text-gray-500 mt-1">Account active</p>
                   </div>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem asChild>
-                    <Link href="/settings" className="cursor-pointer">
-                      <User className="h-4 w-4 mr-2" />
-                      Account Settings
-                    </Link>
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
+                  {/* Mobile nav links */}
+                  <div className="md:hidden">
+                    <DropdownMenuItem asChild>
+                      <Link href="/" className="cursor-pointer">
+                        <LayoutDashboard className="h-4 w-4 mr-2" />
+                        Dashboard
+                      </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                  </div>
                   <DropdownMenuItem 
                     onClick={() => disconnect()}
                     className="text-red-600 cursor-pointer"
@@ -101,15 +97,7 @@ export function Navbar() {
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
-            ) : (
-              <Button 
-                onClick={handleConnect}
-                disabled={isPending}
-                className="bg-blue-600 hover:bg-blue-700"
-              >
-                {isPending ? 'Signing in...' : 'Sign In'}
-              </Button>
-            )}
+            ) : null}
           </div>
         </div>
       </div>

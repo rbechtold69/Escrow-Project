@@ -5,7 +5,6 @@ import { useParams, useRouter } from 'next/navigation';
 import {
   ArrowLeft,
   Building,
-  Calendar,
   CheckCircle2,
   Clock,
   Copy,
@@ -15,7 +14,7 @@ import {
   Home,
   RefreshCw,
   Shield,
-  TrendingUp,
+  DollarSign,
   AlertTriangle,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -75,6 +74,7 @@ interface EscrowData {
   sellerEmail: string;
   createdAt: string;
   depositAmount?: number;
+  currentBalance: number;
   depositReceivedAt?: string;
   closedAt?: string;
   wiringInstructions: {
@@ -84,13 +84,6 @@ interface EscrowData {
     bankAddress: string;
     beneficiaryName: string;
     reference: string;
-  };
-  yieldInfo: {
-    principalDeposited: number;
-    currentBalance: number;
-    accruedYield: number;
-    annualYieldBps: number;
-    lastUpdate: string;
   };
   payees: Array<{
     id: string;
@@ -142,14 +135,14 @@ export default function EscrowDetailPage() {
     'deposit-received': (data: { amount: string; status: string }) => {
       toast({
         title: 'Deposit Received! ✓',
-        description: `$${parseFloat(data.amount).toLocaleString()} has been deposited`,
+        description: `$${parseFloat(data.amount).toLocaleString()} USDC has been deposited`,
       });
       fetchEscrow();
     },
     'payment-sent': (data: { payeeIndex: number; amount: string }) => {
       toast({
         title: 'Payment Sent',
-        description: `$${parseFloat(data.amount).toLocaleString()} disbursed`,
+        description: `$${parseFloat(data.amount).toLocaleString()} USDC disbursed`,
       });
       fetchEscrow();
     },
@@ -244,6 +237,14 @@ export default function EscrowDetailPage() {
   const StatusIcon = status.icon;
   const canClose = escrow.status === 'FUNDS_RECEIVED' && escrow.payees.length > 0;
 
+  // Calculate total to payees
+  const totalToPayees = escrow.payees.reduce((sum, p) => {
+    const amt = p.usePercentage && p.basisPoints
+      ? (escrow.purchasePrice * p.basisPoints) / 10000
+      : p.amount || 0;
+    return sum + amt;
+  }, 0);
+
   return (
     <div className="min-h-screen bg-slate-50">
       {/* Header */}
@@ -254,7 +255,7 @@ export default function EscrowDetailPage() {
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => router.push('/dashboard')}
+                onClick={() => router.push('/')}
               >
                 <ArrowLeft className="h-4 w-4 mr-1" />
                 Back
@@ -366,7 +367,7 @@ export default function EscrowDetailPage() {
               escrowId={escrow.escrowId}
               status={escrow.status}
               purchasePrice={escrow.purchasePrice}
-              currentBalance={escrow.yieldInfo.currentBalance}
+              currentBalance={escrow.currentBalance}
               onAction={fetchEscrow}
             />
 
@@ -382,8 +383,7 @@ export default function EscrowDetailPage() {
                 <DisbursementSheet
                   escrowId={escrow.escrowId}
                   purchasePrice={escrow.purchasePrice}
-                  currentBalance={escrow.yieldInfo.currentBalance}
-                  accruedYield={escrow.yieldInfo.accruedYield}
+                  currentBalance={escrow.currentBalance}
                   buyerName={escrow.buyerName}
                   payees={escrow.payees as any}
                   onAddPayee={async (payee) => {
@@ -419,7 +419,6 @@ export default function EscrowDetailPage() {
                   </CardHeader>
                   <CardContent>
                     <div className="space-y-4">
-                      {/* Activity items would go here */}
                       <p className="text-sm text-slate-500">
                         Activity log coming soon...
                       </p>
@@ -449,29 +448,29 @@ export default function EscrowDetailPage() {
 
           {/* Sidebar */}
           <div className="space-y-6">
-            {/* Yield Card */}
-            <Card className="bg-gradient-to-br from-emerald-500 to-emerald-600 text-white">
+            {/* USDC Balance Card */}
+            <Card className="bg-gradient-to-br from-blue-500 to-blue-600 text-white">
               <CardHeader className="pb-2">
                 <CardTitle className="text-lg font-medium flex items-center gap-2">
-                  <TrendingUp className="h-5 w-5" />
-                  Treasury Yield
+                  <DollarSign className="h-5 w-5" />
+                  USDC Balance
                 </CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="text-3xl font-bold">
-                  +{formatCurrency(escrow.yieldInfo.accruedYield)}
+                  {formatCurrency(escrow.currentBalance || 0)}
                 </div>
-                <p className="text-emerald-100 text-sm mt-1">
-                  {(escrow.yieldInfo.annualYieldBps / 100).toFixed(2)}% APY on US Treasuries
+                <p className="text-blue-100 text-sm mt-1">
+                  Held in Safe Multisig
                 </p>
-                <div className="mt-4 pt-4 border-t border-emerald-400/30">
+                <div className="mt-4 pt-4 border-t border-blue-400/30">
                   <div className="flex justify-between text-sm">
-                    <span className="text-emerald-100">Principal</span>
-                    <span>{formatCurrency(escrow.yieldInfo.principalDeposited)}</span>
+                    <span className="text-blue-100">Purchase Price</span>
+                    <span>{formatCurrency(escrow.purchasePrice)}</span>
                   </div>
                   <div className="flex justify-between text-sm mt-1">
-                    <span className="text-emerald-100">Current Balance</span>
-                    <span>{formatCurrency(escrow.yieldInfo.currentBalance)}</span>
+                    <span className="text-blue-100">Deposited</span>
+                    <span>{formatCurrency(escrow.depositAmount || 0)}</span>
                   </div>
                 </div>
               </CardContent>
@@ -561,13 +560,13 @@ export default function EscrowDetailPage() {
                 </CardHeader>
                 <CardContent className="space-y-3 text-sm text-slate-500">
                   <div>
-                    <span className="text-xs uppercase">Account ID</span>
+                    <span className="text-xs uppercase">Safe Address</span>
                     <p className="font-mono text-xs">
                       {escrow.safeAddress?.slice(0, 10)}...
                     </p>
                   </div>
                   <div>
-                    <span className="text-xs uppercase">Vault ID</span>
+                    <span className="text-xs uppercase">Vault Address</span>
                     <p className="font-mono text-xs">
                       {escrow.vaultAddress?.slice(0, 10)}...
                     </p>
@@ -598,28 +597,20 @@ export default function EscrowDetailPage() {
                     <AlertDialogTitle>Close Escrow</AlertDialogTitle>
                     <AlertDialogDescription>
                       This will initiate the close process and require 2-of-3 multisig 
-                      signatures. Once signed, funds will be disbursed to all payees 
-                      and the yield rebate will be sent to the buyer.
+                      signatures. Once signed, USDC will be disbursed to all payees instantly.
                     </AlertDialogDescription>
                   </AlertDialogHeader>
                   <div className="my-4 p-4 bg-slate-50 rounded-lg">
                     <div className="flex justify-between text-sm mb-2">
-                      <span>Total to Payees</span>
+                      <span>Available Balance</span>
                       <span className="font-medium">
-                        {formatCurrency(
-                          escrow.payees.reduce((sum, p) => {
-                            const amt = p.usePercentage && p.basisPoints
-                              ? (escrow.purchasePrice * p.basisPoints) / 10000
-                              : p.amount || 0;
-                            return sum + amt;
-                          }, 0)
-                        )}
+                        {formatCurrency(escrow.currentBalance || 0)}
                       </span>
                     </div>
                     <div className="flex justify-between text-sm">
-                      <span>Buyer Yield Rebate</span>
-                      <span className="font-medium text-emerald-600">
-                        +{formatCurrency(escrow.yieldInfo.accruedYield)}
+                      <span>Total to Payees</span>
+                      <span className="font-medium">
+                        {formatCurrency(totalToPayees)}
                       </span>
                     </div>
                   </div>

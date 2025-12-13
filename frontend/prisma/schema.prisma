@@ -87,7 +87,7 @@ model Escrow {
   zipCode         String
   purchasePrice   Decimal      @db.Decimal(18, 2)
   
-  // Buyer info (for yield rebate)
+  // Buyer info (for wiring instructions)
   buyerFirstName  String
   buyerLastName   String
   buyerEmail      String
@@ -110,8 +110,7 @@ model Escrow {
   
   // Financial tracking (we track amounts, not bank details)
   initialDeposit  Decimal?     @db.Decimal(18, 6)  // USDC deposited
-  currentBalance  Decimal?     @db.Decimal(18, 6)  // Current USDM value
-  accruedYield    Decimal?     @db.Decimal(18, 6)  // Yield earned
+  currentBalance  Decimal?     @db.Decimal(18, 6)  // Current USDC balance (1:1 liquid)
   
   // Transaction hashes (public blockchain data)
   depositTxHash   String?
@@ -137,7 +136,7 @@ model Escrow {
 enum EscrowStatus {
   CREATED           // Escrow opened, awaiting funds
   DEPOSIT_PENDING   // Wire initiated, not yet received
-  FUNDS_RECEIVED    // Funds received, now earning yield
+  FUNDS_RECEIVED    // USDC received in Safe, ready for payee setup
   READY_TO_CLOSE    // All payees configured, ready for disbursement
   CLOSING           // Close transaction in progress
   CLOSED            // All funds disbursed

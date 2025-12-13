@@ -3,7 +3,7 @@
 import * as React from 'react';
 
 const TOAST_LIMIT = 1;
-const TOAST_REMOVE_DELAY = 1000000;
+const TOAST_REMOVE_DELAY = 5000; // 5 seconds
 
 type ToasterToast = {
   id: string;
@@ -151,6 +151,11 @@ function toast({ ...props }: Toast) {
       id,
     },
   });
+
+  // Auto-dismiss after delay
+  setTimeout(() => {
+    dismiss();
+  }, TOAST_REMOVE_DELAY);
 
   return {
     id: id,
