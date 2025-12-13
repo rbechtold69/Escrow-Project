@@ -6,18 +6,25 @@ import {
   Briefcase,
   Wrench,
   Building,
+  Building2,
   CreditCard,
   Landmark,
   Mail,
   Check,
   Clock,
   AlertCircle,
+  AlertTriangle,
   Trash2,
   Edit,
   ChevronDown,
   ChevronUp,
   Shield,
   Home,
+  FileText,
+  Scale,
+  Truck,
+  Users,
+  ClipboardCheck,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -83,16 +90,44 @@ interface DisbursementSheetProps {
 // ============================================================
 
 const payeeTypeIcons: Record<string, React.ReactNode> = {
+  // Primary Parties
+  BUYER: <User className="h-4 w-4" />,
   SELLER: <User className="h-4 w-4" />,
-  LISTING_AGENT: <Briefcase className="h-4 w-4" />,
+  // Real Estate Agents
   BUYER_AGENT: <Briefcase className="h-4 w-4" />,
-  TITLE_INSURANCE: <Shield className="h-4 w-4" />,
-  ESCROW_COMPANY: <Building className="h-4 w-4" />,
+  LISTING_AGENT: <Briefcase className="h-4 w-4" />,
+  // Lenders & Mortgage
+  BUYER_LENDER: <Landmark className="h-4 w-4" />,
+  LOAN_OFFICER: <Landmark className="h-4 w-4" />,
   MORTGAGE_PAYOFF: <Home className="h-4 w-4" />,
+  HELOC_LENDER: <Landmark className="h-4 w-4" />,
+  // Title & Escrow
+  ESCROW_COMPANY: <Building className="h-4 w-4" />,
+  TITLE_INSURANCE: <Shield className="h-4 w-4" />,
+  UNDERWRITER: <ClipboardCheck className="h-4 w-4" />,
+  // Appraisal
+  APPRAISER: <FileText className="h-4 w-4" />,
+  APPRAISAL_MGMT: <Building2 className="h-4 w-4" />,
+  // Insurance
+  HOME_INSURANCE: <Shield className="h-4 w-4" />,
+  HOME_WARRANTY: <Shield className="h-4 w-4" />,
+  // Transaction Support
+  NOTARY: <FileText className="h-4 w-4" />,
+  TC_BUYER: <Users className="h-4 w-4" />,
+  TC_SELLER: <Users className="h-4 w-4" />,
+  COURIER_SERVICE: <Truck className="h-4 w-4" />,
+  // HOA
   HOA: <Building className="h-4 w-4" />,
-  INSPECTOR: <Wrench className="h-4 w-4" />,
-  CONTRACTOR: <Wrench className="h-4 w-4" />,
-  OTHER: <Building className="h-4 w-4" />,
+  HOA_MGMT: <Building2 className="h-4 w-4" />,
+  // Liens
+  LIEN_HOLDER: <AlertTriangle className="h-4 w-4" />,
+  // Government
+  PROPERTY_TAX: <Scale className="h-4 w-4" />,
+  COUNTY_RECORDER: <Building className="h-4 w-4" />,
+  // Other
+  HAZARD_DISCLOSURE: <AlertTriangle className="h-4 w-4" />,
+  CREDIT_AGENCY: <CreditCard className="h-4 w-4" />,
+  OTHER: <Wrench className="h-4 w-4" />,
 };
 
 const paymentMethodIcons: Record<string, React.ReactNode> = {

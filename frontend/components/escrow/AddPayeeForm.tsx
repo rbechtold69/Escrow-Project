@@ -4,14 +4,34 @@ import { useState } from 'react';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { PlusCircle, User, Building, Briefcase, Wrench, Home, Shield, Loader2 } from 'lucide-react';
+import { 
+  PlusCircle, 
+  User, 
+  Building, 
+  Building2,
+  Briefcase, 
+  Wrench, 
+  Home, 
+  Shield, 
+  Loader2,
+  Landmark,
+  FileText,
+  Scale,
+  Truck,
+  CreditCard,
+  AlertTriangle,
+  Users,
+  ClipboardCheck,
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
+  SelectLabel,
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
@@ -31,21 +51,185 @@ import { cn } from '@/lib/utils';
 // ============================================================
 
 export type PaymentMethod = 'WIRE' | 'ACH' | 'CHECK';
+
 export type PayeeType = 
-  | 'SELLER' 
-  | 'LISTING_AGENT' 
-  | 'BUYER_AGENT' 
-  | 'TITLE_INSURANCE'
-  | 'ESCROW_COMPANY'
+  // Primary Parties
+  | 'BUYER'
+  | 'SELLER'
+  // Real Estate Agents
+  | 'BUYER_AGENT'
+  | 'LISTING_AGENT'
+  // Lenders & Mortgage
+  | 'BUYER_LENDER'
+  | 'LOAN_OFFICER'
   | 'MORTGAGE_PAYOFF'
+  | 'HELOC_LENDER'
+  // Title & Escrow
+  | 'ESCROW_COMPANY'
+  | 'TITLE_INSURANCE'
+  | 'UNDERWRITER'
+  // Appraisal
+  | 'APPRAISER'
+  | 'APPRAISAL_MGMT'
+  // Insurance
+  | 'HOME_INSURANCE'
+  | 'HOME_WARRANTY'
+  // Transaction Support
+  | 'NOTARY'
+  | 'TC_BUYER'
+  | 'TC_SELLER'
+  // HOA
   | 'HOA'
+  | 'HOA_MGMT'
+  // Liens & Payoffs
+  | 'LIEN_HOLDER'
+  // Government
+  | 'PROPERTY_TAX'
+  | 'COUNTY_RECORDER'
+  // Disclosures & Services
+  | 'HAZARD_DISCLOSURE'
+  | 'COURIER_SERVICE'
+  | 'CREDIT_AGENCY'
+  // Other
   | 'OTHER';
+
+// Payee types organized by category for the dropdown
+const payeeTypeCategories = [
+  {
+    label: 'Primary Parties',
+    types: ['BUYER', 'SELLER'] as PayeeType[],
+  },
+  {
+    label: 'Real Estate Agents',
+    types: ['BUYER_AGENT', 'LISTING_AGENT'] as PayeeType[],
+  },
+  {
+    label: 'Lenders & Mortgage',
+    types: ['BUYER_LENDER', 'LOAN_OFFICER', 'MORTGAGE_PAYOFF', 'HELOC_LENDER'] as PayeeType[],
+  },
+  {
+    label: 'Title & Escrow',
+    types: ['ESCROW_COMPANY', 'TITLE_INSURANCE', 'UNDERWRITER'] as PayeeType[],
+  },
+  {
+    label: 'Appraisal',
+    types: ['APPRAISER', 'APPRAISAL_MGMT'] as PayeeType[],
+  },
+  {
+    label: 'Insurance & Warranty',
+    types: ['HOME_INSURANCE', 'HOME_WARRANTY'] as PayeeType[],
+  },
+  {
+    label: 'Transaction Support',
+    types: ['NOTARY', 'TC_BUYER', 'TC_SELLER', 'COURIER_SERVICE'] as PayeeType[],
+  },
+  {
+    label: 'HOA / Condo',
+    types: ['HOA', 'HOA_MGMT'] as PayeeType[],
+  },
+  {
+    label: 'Liens & Payoffs',
+    types: ['LIEN_HOLDER'] as PayeeType[],
+  },
+  {
+    label: 'Government',
+    types: ['PROPERTY_TAX', 'COUNTY_RECORDER'] as PayeeType[],
+  },
+  {
+    label: 'Other Services',
+    types: ['HAZARD_DISCLOSURE', 'CREDIT_AGENCY', 'OTHER'] as PayeeType[],
+  },
+];
+
+const payeeTypeLabels: Record<PayeeType, string> = {
+  // Primary Parties
+  BUYER: 'Buyer',
+  SELLER: 'Seller',
+  // Real Estate Agents
+  BUYER_AGENT: "Buyer's Agent (Selling Agent)",
+  LISTING_AGENT: "Seller's Agent (Listing Agent)",
+  // Lenders & Mortgage
+  BUYER_LENDER: "Buyer's Lender",
+  LOAN_OFFICER: 'Loan Officer / Mortgage Broker',
+  MORTGAGE_PAYOFF: "Mortgage Payoff (Seller's Loan)",
+  HELOC_LENDER: 'HELOC Lender',
+  // Title & Escrow
+  ESCROW_COMPANY: 'Escrow Officer / Escrow Company',
+  TITLE_INSURANCE: 'Title Insurance Company',
+  UNDERWRITER: 'Underwriter (Lender Side)',
+  // Appraisal
+  APPRAISER: 'Appraiser',
+  APPRAISAL_MGMT: 'Appraisal Management Company',
+  // Insurance
+  HOME_INSURANCE: 'Homeowners Insurance Company',
+  HOME_WARRANTY: 'Home Warranty Company',
+  // Transaction Support
+  NOTARY: 'Notary Public / Mobile Notary',
+  TC_BUYER: 'Transaction Coordinator (Buyer)',
+  TC_SELLER: 'Transaction Coordinator (Seller)',
+  COURIER_SERVICE: 'Courier / Wire / Recording Service',
+  // HOA
+  HOA: 'HOA / Condo Association',
+  HOA_MGMT: 'HOA Management Company',
+  // Liens
+  LIEN_HOLDER: 'Lien Holder (Tax, Judgment, etc.)',
+  // Government
+  PROPERTY_TAX: 'Property Tax Authority',
+  COUNTY_RECORDER: 'County Recorder',
+  // Other
+  HAZARD_DISCLOSURE: 'Natural Hazard Disclosure Provider',
+  CREDIT_AGENCY: 'Credit Reporting Agency',
+  OTHER: 'Other',
+};
+
+const payeeTypeIcons: Record<PayeeType, React.ReactNode> = {
+  // Primary Parties
+  BUYER: <User className="h-4 w-4" />,
+  SELLER: <User className="h-4 w-4" />,
+  // Real Estate Agents
+  BUYER_AGENT: <Briefcase className="h-4 w-4" />,
+  LISTING_AGENT: <Briefcase className="h-4 w-4" />,
+  // Lenders & Mortgage
+  BUYER_LENDER: <Landmark className="h-4 w-4" />,
+  LOAN_OFFICER: <Landmark className="h-4 w-4" />,
+  MORTGAGE_PAYOFF: <Home className="h-4 w-4" />,
+  HELOC_LENDER: <Landmark className="h-4 w-4" />,
+  // Title & Escrow
+  ESCROW_COMPANY: <Building className="h-4 w-4" />,
+  TITLE_INSURANCE: <Shield className="h-4 w-4" />,
+  UNDERWRITER: <ClipboardCheck className="h-4 w-4" />,
+  // Appraisal
+  APPRAISER: <FileText className="h-4 w-4" />,
+  APPRAISAL_MGMT: <Building2 className="h-4 w-4" />,
+  // Insurance
+  HOME_INSURANCE: <Shield className="h-4 w-4" />,
+  HOME_WARRANTY: <Shield className="h-4 w-4" />,
+  // Transaction Support
+  NOTARY: <FileText className="h-4 w-4" />,
+  TC_BUYER: <Users className="h-4 w-4" />,
+  TC_SELLER: <Users className="h-4 w-4" />,
+  COURIER_SERVICE: <Truck className="h-4 w-4" />,
+  // HOA
+  HOA: <Building className="h-4 w-4" />,
+  HOA_MGMT: <Building2 className="h-4 w-4" />,
+  // Liens
+  LIEN_HOLDER: <AlertTriangle className="h-4 w-4" />,
+  // Government
+  PROPERTY_TAX: <Scale className="h-4 w-4" />,
+  COUNTY_RECORDER: <Building className="h-4 w-4" />,
+  // Other
+  HAZARD_DISCLOSURE: <AlertTriangle className="h-4 w-4" />,
+  CREDIT_AGENCY: <CreditCard className="h-4 w-4" />,
+  OTHER: <Wrench className="h-4 w-4" />,
+};
+
+const allPayeeTypes = Object.keys(payeeTypeLabels) as PayeeType[];
 
 const payeeSchema = z.object({
   firstName: z.string().min(1, 'First name is required'),
   lastName: z.string().min(1, 'Last name is required'),
   email: z.string().email('Valid email required').optional().or(z.literal('')),
-  payeeType: z.enum(['SELLER', 'LISTING_AGENT', 'BUYER_AGENT', 'TITLE_INSURANCE', 'ESCROW_COMPANY', 'MORTGAGE_PAYOFF', 'HOA', 'OTHER']),
+  payeeType: z.enum(allPayeeTypes as [PayeeType, ...PayeeType[]]),
   paymentMethod: z.enum(['WIRE', 'ACH', 'CHECK']),
   amount: z.number().positive('Amount must be positive').optional(),
   basisPoints: z.number().min(0).max(10000).optional(),
@@ -71,30 +255,8 @@ interface AddPayeeFormProps {
 }
 
 // ============================================================
-// Payee Type Icons & Labels
+// Payment Method Labels
 // ============================================================
-
-const payeeTypeIcons: Record<PayeeType, React.ReactNode> = {
-  SELLER: <User className="h-4 w-4" />,
-  LISTING_AGENT: <Briefcase className="h-4 w-4" />,
-  BUYER_AGENT: <Briefcase className="h-4 w-4" />,
-  TITLE_INSURANCE: <Shield className="h-4 w-4" />,
-  ESCROW_COMPANY: <Building className="h-4 w-4" />,
-  MORTGAGE_PAYOFF: <Home className="h-4 w-4" />,
-  HOA: <Building className="h-4 w-4" />,
-  OTHER: <Wrench className="h-4 w-4" />,
-};
-
-const payeeTypeLabels: Record<PayeeType, string> = {
-  SELLER: 'Seller',
-  LISTING_AGENT: 'Listing Agent',
-  BUYER_AGENT: "Buyer's Agent",
-  TITLE_INSURANCE: 'Title Insurance',
-  ESCROW_COMPANY: 'Escrow Company',
-  MORTGAGE_PAYOFF: 'Mortgage Payoff',
-  HOA: 'HOA',
-  OTHER: 'Other',
-};
 
 const paymentMethodLabels: Record<PaymentMethod, string> = {
   WIRE: 'Wire Transfer (1-2 days)',
@@ -228,7 +390,7 @@ export function AddPayeeForm({
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* Payee Type */}
+            {/* Payee Type - Grouped Select */}
             <div className="space-y-2">
               <Label>Payee Type</Label>
               <Controller
@@ -239,14 +401,21 @@ export function AddPayeeForm({
                     <SelectTrigger className={cn(errors.payeeType && 'border-red-500')}>
                       <SelectValue placeholder="Select type" />
                     </SelectTrigger>
-                    <SelectContent>
-                      {(Object.keys(payeeTypeLabels) as PayeeType[]).map((type) => (
-                        <SelectItem key={type} value={type}>
-                          <span className="flex items-center gap-2">
-                            {payeeTypeIcons[type]}
-                            {payeeTypeLabels[type]}
-                          </span>
-                        </SelectItem>
+                    <SelectContent className="max-h-80">
+                      {payeeTypeCategories.map((category) => (
+                        <SelectGroup key={category.label}>
+                          <SelectLabel className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                            {category.label}
+                          </SelectLabel>
+                          {category.types.map((type) => (
+                            <SelectItem key={type} value={type}>
+                              <span className="flex items-center gap-2">
+                                {payeeTypeIcons[type]}
+                                <span className="truncate">{payeeTypeLabels[type]}</span>
+                              </span>
+                            </SelectItem>
+                          ))}
+                        </SelectGroup>
                       ))}
                     </SelectContent>
                   </Select>

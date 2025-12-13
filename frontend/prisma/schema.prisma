@@ -238,33 +238,44 @@ model Payee {
 }
 
 enum PayeeType {
+  // Primary Parties
   BUYER
   SELLER
-  BUYER_AGENT
-  LISTING_AGENT
-  BUYER_LENDER
-  LOAN_OFFICER
-  ESCROW_COMPANY
-  TITLE_INSURANCE
-  UNDERWRITER
-  APPRAISER
-  APPRAISAL_MGMT
-  HOME_INSURANCE
-  NOTARY
-  TC_BUYER
-  TC_SELLER
-  HOA
-  HOA_MGMT
-  MORTGAGE_PAYOFF
-  HELOC_LENDER
-  LIEN_HOLDER
-  PROPERTY_TAX
-  COUNTY_RECORDER
-  HAZARD_DISCLOSURE
-  HOME_WARRANTY
-  COURIER_SERVICE
-  CREDIT_AGENCY
-  OTHER
+  // Real Estate Agents
+  BUYER_AGENT           // Buyer's Agent (Selling Agent)
+  LISTING_AGENT         // Seller's Agent (Listing Agent)
+  // Lenders & Mortgage
+  BUYER_LENDER          // Buyer's Lender (if financed)
+  LOAN_OFFICER          // Loan Officer / Mortgage Broker
+  MORTGAGE_PAYOFF       // Mortgage Payoff (Seller's Existing Loan)
+  HELOC_LENDER          // HELOC Lender (if applicable)
+  // Title & Escrow
+  ESCROW_COMPANY        // Escrow Officer / Escrow Company
+  TITLE_INSURANCE       // Title Insurance Company
+  UNDERWRITER           // Underwriter (Lender Side)
+  // Appraisal
+  APPRAISER             // Appraiser
+  APPRAISAL_MGMT        // Appraisal Management Company
+  // Insurance & Warranty
+  HOME_INSURANCE        // Homeowners Insurance Company
+  HOME_WARRANTY         // Home Warranty Company (if applicable)
+  // Transaction Support
+  NOTARY                // Notary Public / Mobile Notary
+  TC_BUYER              // Transaction Coordinator (Buyer Side)
+  TC_SELLER             // Transaction Coordinator (Seller Side)
+  COURIER_SERVICE       // Courier / Wire / Recording Service Providers
+  // HOA / Condo
+  HOA                   // HOA / Condo Association (if applicable)
+  HOA_MGMT              // HOA Management Company
+  // Liens & Payoffs
+  LIEN_HOLDER           // Other Lien Holders (Tax, Judgment, Mechanics, etc.)
+  // Government
+  PROPERTY_TAX          // Property Tax Authority
+  COUNTY_RECORDER       // County Recorder
+  // Other Services
+  HAZARD_DISCLOSURE     // Natural Hazard Disclosure Provider (state-dependent)
+  CREDIT_AGENCY         // Credit Reporting Agency (indirect, lender-related)
+  OTHER                 // Other
 }
 
 enum PaymentMethod {
