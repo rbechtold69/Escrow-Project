@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { createBridgeServiceAuto } from '@/lib/bridge-mock';
+import { simulatePendingSignature } from '@/lib/safe-sdk';
 
 // ============================================================
 // POST /api/escrow/[id]/close
-// Initiate and complete the escrow closing process
+// Initiate the escrow closing process (requires multisig approval)
 // ============================================================
 
 export async function POST(
@@ -13,6 +14,8 @@ export async function POST(
 ) {
   try {
     const escrowId = params.id;
+    const body = await request.json().catch(() => ({}));
+    const action = body.action || 'initiate'; // 'initiate', 'sign', 'execute'
     
     // Find escrow with payees
     const escrow = await prisma.escrow.findFirst({
@@ -55,11 +58,10 @@ export async function POST(
         { status: 400 }
       );
     }
-    
+
     // Calculate financials
     const principal = Number(escrow.initialDeposit || escrow.purchasePrice);
     const currentBalance = Number(escrow.currentBalance || principal);
-    const accruedYield = Number(escrow.accruedYield || 0);
     
     // Calculate total to payees
     const totalToPayees = escrow.payees.reduce((sum, payee) => {
@@ -68,120 +70,236 @@ export async function POST(
         : Number(payee.amount) || 0;
       return sum + amount;
     }, 0);
-    
-    // Calculate platform fee (0.5% of yield) and buyer rebate
-    const platformFeeBps = 50; // 0.5%
-    const platformFee = (accruedYield * platformFeeBps) / 10000;
-    const buyerRebate = accruedYield - platformFee;
-    
-    // Update escrow status to CLOSING
-    await prisma.escrow.update({
-      where: { id: escrow.id },
-      data: { status: 'CLOSING' },
-    });
-    
-    // In a real implementation, this would:
-    // 1. Call the smart contract to swap USDM → USDC
-    // 2. Queue all payee transfers via Bridge
-    // 3. Wait for multisig approval
-    
-    // For demo mode, simulate the closing process
-    const bridgeService = createBridgeServiceAuto();
-    const payoutResults = [];
-    
-    // Process each payee (simulated)
-    for (const payee of escrow.payees) {
-      const amount = payee.basisPoints 
-        ? (Number(escrow.purchasePrice) * payee.basisPoints) / 10000
-        : Number(payee.amount) || 0;
+
+    // ════════════════════════════════════════════════════════════════════════
+    // ACTION: INITIATE - First signature (creates pending transaction)
+    // ════════════════════════════════════════════════════════════════════════
+    if (action === 'initiate') {
+      // Check if already in closing state
+      if (escrow.status === 'CLOSING') {
+        return NextResponse.json({
+          success: true,
+          message: 'Close transaction already pending',
+          status: 'CLOSING',
+          pendingSignatures: {
+            safeTxHash: `0x${escrow.escrowId.replace(/-/g, '').padEnd(64, '0')}`,
+            confirmations: 1,
+            threshold: 2,
+            signers: [
+              { address: body.signerAddress || '0x...', signed: true, role: 'Escrow Officer' },
+              { address: '0x...pending...', signed: false, role: 'Supervisor' },
+            ],
+          },
+          requiredSignatures: 2,
+          currentSignatures: 1,
+        });
+      }
       
-      // Simulate transfer initiation
-      const transfer = await bridgeService.initiateTransfer({
-        amount: Math.round(amount * 100), // Convert to cents
-        currency: 'usd',
-        destination_account_id: payee.bridgeBeneficiaryId,
-        memo: `Escrow ${escrow.escrowId} disbursement`,
-        metadata: {
-          escrowId: escrow.escrowId,
-          payeeId: payee.id,
-          payeeType: payee.payeeType,
-        },
+      // Update escrow status to CLOSING
+      await prisma.escrow.update({
+        where: { id: escrow.id },
+        data: { status: 'CLOSING' },
       });
       
-      // Update payee status
-      await prisma.payee.update({
-        where: { id: payee.id },
+      // Log the initiation
+      await prisma.activityLog.create({
         data: {
-          status: 'PROCESSING',
-          bridgeTransferId: transfer.id,
+          escrowId: escrow.id,
+          action: 'CLOSE_INITIATED',
+          details: {
+            currentBalance: currentBalance,
+            totalToPayees: totalToPayees,
+            payeeCount: escrow.payees.length,
+            initiatedBy: body.signerAddress || 'unknown',
+          },
+          actorWallet: body.signerAddress || null,
         },
       });
       
-      payoutResults.push({
-        payeeId: payee.id,
-        name: `${payee.firstName} ${payee.lastName}`,
-        amount: amount,
-        transferId: transfer.id,
-        status: transfer.status,
-      });
-    }
-    
-    // Mark escrow as closed
-    await prisma.escrow.update({
-      where: { id: escrow.id },
-      data: {
-        status: 'CLOSED',
-        closedAt: new Date(),
-      },
-    });
-    
-    // Update all payees to COMPLETED (in demo mode, instant completion)
-    await prisma.payee.updateMany({
-      where: { escrowId: escrow.id },
-      data: {
-        status: 'COMPLETED',
-        paidAt: new Date(),
-      },
-    });
-    
-    // Log the close
-    await prisma.activityLog.create({
-      data: {
-        escrowId: escrow.id,
-        action: 'ESCROW_CLOSED',
-        details: {
-          principal: principal,
-          accruedYield: accruedYield,
-          platformFee: platformFee,
-          buyerRebate: buyerRebate,
+      console.log(`[CLOSE_ESCROW] Close initiated for ${escrow.escrowId}`);
+      console.log(`  Waiting for 2nd signature...`);
+      
+      // Generate mock Safe transaction hash
+      const safeTxHash = `0x${escrow.escrowId.replace(/-/g, '').padEnd(64, '0')}`;
+      
+      return NextResponse.json({
+        success: true,
+        message: 'Close transaction created - awaiting additional signatures',
+        status: 'CLOSING',
+        pendingSignatures: {
+          safeTxHash,
+          confirmations: 1,
+          threshold: 2,
+          signers: [
+            { address: body.signerAddress || '0x...', signed: true, role: 'Escrow Officer' },
+            { address: '0x...pending...', signed: false, role: 'Supervisor' },
+          ],
+        },
+        requiredSignatures: 2,
+        currentSignatures: 1,
+        summary: {
+          escrowId: escrow.escrowId,
+          currentBalance: currentBalance,
           totalToPayees: totalToPayees,
           payeeCount: escrow.payees.length,
-          payouts: payoutResults,
         },
-        actorWallet: request.headers.get('x-wallet-address') || null,
-      },
-    });
-    
-    console.log(`[CLOSE_ESCROW] Escrow ${escrow.escrowId} closed successfully`);
-    console.log(`  Principal: $${principal.toLocaleString()}`);
-    console.log(`  Yield: $${accruedYield.toFixed(2)}`);
-    console.log(`  Buyer Rebate: $${buyerRebate.toFixed(2)}`);
-    console.log(`  Payees: ${escrow.payees.length} totaling $${totalToPayees.toLocaleString()}`);
-    
-    return NextResponse.json({
-      success: true,
-      message: 'Escrow closed successfully',
-      summary: {
-        escrowId: escrow.escrowId,
-        principal: principal,
-        accruedYield: accruedYield,
-        platformFee: platformFee,
-        buyerRebate: buyerRebate,
-        totalToPayees: totalToPayees,
-        closedAt: new Date().toISOString(),
-      },
-      payouts: payoutResults,
-    });
+      });
+    }
+
+    // ════════════════════════════════════════════════════════════════════════
+    // ACTION: SIGN - Second signature (or additional signatures)
+    // ════════════════════════════════════════════════════════════════════════
+    if (action === 'sign') {
+      if (escrow.status !== 'CLOSING') {
+        return NextResponse.json(
+          { error: 'No pending close transaction to sign' },
+          { status: 400 }
+        );
+      }
+      
+      // Log the signature
+      await prisma.activityLog.create({
+        data: {
+          escrowId: escrow.id,
+          action: 'CLOSE_SIGNED',
+          details: {
+            signedBy: body.signerAddress || 'unknown',
+            signatureNumber: 2,
+          },
+          actorWallet: body.signerAddress || null,
+        },
+      });
+      
+      console.log(`[CLOSE_ESCROW] 2nd signature received for ${escrow.escrowId}`);
+      
+      // With 2 signatures, we now have enough to execute
+      const safeTxHash = `0x${escrow.escrowId.replace(/-/g, '').padEnd(64, '0')}`;
+      
+      return NextResponse.json({
+        success: true,
+        message: 'Transaction signed - threshold reached, ready to execute',
+        status: 'CLOSING',
+        pendingSignatures: {
+          safeTxHash,
+          confirmations: 2,
+          threshold: 2,
+          signers: [
+            { address: '0x...first...', signed: true, role: 'Escrow Officer' },
+            { address: body.signerAddress || '0x...', signed: true, role: 'Supervisor' },
+          ],
+        },
+        requiredSignatures: 2,
+        currentSignatures: 2,
+        canExecute: true,
+      });
+    }
+
+    // ════════════════════════════════════════════════════════════════════════
+    // ACTION: EXECUTE - Execute the transaction (after threshold met)
+    // ════════════════════════════════════════════════════════════════════════
+    if (action === 'execute') {
+      if (escrow.status !== 'CLOSING') {
+        return NextResponse.json(
+          { error: 'No pending close transaction to execute' },
+          { status: 400 }
+        );
+      }
+      
+      // Process all payee transfers via Bridge
+      const bridgeService = createBridgeServiceAuto();
+      const payoutResults = [];
+      
+      for (const payee of escrow.payees) {
+        const amount = payee.basisPoints 
+          ? (Number(escrow.purchasePrice) * payee.basisPoints) / 10000
+          : Number(payee.amount) || 0;
+        
+        // Simulate transfer initiation
+        const transfer = await bridgeService.initiateTransfer({
+          amount: Math.round(amount * 100), // Convert to cents
+          currency: 'usd',
+          destination_account_id: payee.bridgeBeneficiaryId,
+          memo: `Escrow ${escrow.escrowId} disbursement`,
+          metadata: {
+            escrowId: escrow.escrowId,
+            payeeId: payee.id,
+            payeeType: payee.payeeType,
+          },
+        });
+        
+        // Update payee status
+        await prisma.payee.update({
+          where: { id: payee.id },
+          data: {
+            status: 'COMPLETED',
+            bridgeTransferId: transfer.id,
+            paidAt: new Date(),
+          },
+        });
+        
+        payoutResults.push({
+          payeeId: payee.id,
+          name: `${payee.firstName} ${payee.lastName}`,
+          amount: amount,
+          transferId: transfer.id,
+          status: 'completed',
+        });
+      }
+      
+      // Mark escrow as closed
+      const closeTxHash = `0x${Array(64).fill(0).map(() => 
+        Math.floor(Math.random() * 16).toString(16)
+      ).join('')}`;
+      
+      await prisma.escrow.update({
+        where: { id: escrow.id },
+        data: {
+          status: 'CLOSED',
+          closedAt: new Date(),
+          closeTxHash: closeTxHash,
+          currentBalance: 0, // All funds disbursed
+        },
+      });
+      
+      // Log the close
+      await prisma.activityLog.create({
+        data: {
+          escrowId: escrow.id,
+          action: 'ESCROW_CLOSED',
+          details: {
+            principal: principal,
+            totalToPayees: totalToPayees,
+            payeeCount: escrow.payees.length,
+            payouts: payoutResults,
+            transactionHash: closeTxHash,
+          },
+          actorWallet: body.signerAddress || null,
+        },
+      });
+      
+      console.log(`[CLOSE_ESCROW] Escrow ${escrow.escrowId} CLOSED successfully`);
+      console.log(`  Transaction: ${closeTxHash}`);
+      console.log(`  Payees: ${escrow.payees.length} totaling $${totalToPayees.toLocaleString()}`);
+      
+      return NextResponse.json({
+        success: true,
+        message: 'Escrow closed successfully! All funds disbursed.',
+        status: 'CLOSED',
+        transactionHash: closeTxHash,
+        summary: {
+          escrowId: escrow.escrowId,
+          principal: principal,
+          totalToPayees: totalToPayees,
+          closedAt: new Date().toISOString(),
+        },
+        payouts: payoutResults,
+      });
+    }
+
+    return NextResponse.json(
+      { error: 'Invalid action. Use: initiate, sign, or execute' },
+      { status: 400 }
+    );
     
   } catch (error: any) {
     console.error('[CLOSE_ESCROW] Error:', error);
@@ -194,7 +312,7 @@ export async function POST(
 
 // ============================================================
 // GET /api/escrow/[id]/close
-// Get close summary (for pre-close review)
+// Get close summary and pending signature status
 // ============================================================
 
 export async function GET(
@@ -213,6 +331,15 @@ export async function GET(
       },
       include: {
         payees: true,
+        activityLogs: {
+          where: {
+            action: {
+              in: ['CLOSE_INITIATED', 'CLOSE_SIGNED'],
+            },
+          },
+          orderBy: { createdAt: 'desc' },
+          take: 10,
+        },
       },
     });
     
@@ -225,7 +352,6 @@ export async function GET(
     
     const principal = Number(escrow.initialDeposit || escrow.purchasePrice);
     const currentBalance = Number(escrow.currentBalance || principal);
-    const accruedYield = Number(escrow.accruedYield || 0);
     
     const totalToPayees = escrow.payees.reduce((sum, payee) => {
       const amount = payee.basisPoints 
@@ -234,22 +360,45 @@ export async function GET(
       return sum + amount;
     }, 0);
     
-    const platformFeeBps = 50;
-    const platformFee = (accruedYield * platformFeeBps) / 10000;
-    const buyerRebate = accruedYield - platformFee;
+    // Check for pending signatures
+    const closeInitiated = escrow.activityLogs.find(l => l.action === 'CLOSE_INITIATED');
+    const signLogs = escrow.activityLogs.filter(l => l.action === 'CLOSE_SIGNED');
+    const confirmations = closeInitiated ? 1 + signLogs.length : 0;
+    
+    let pendingSignatures = null;
+    if (escrow.status === 'CLOSING') {
+      pendingSignatures = {
+        safeTxHash: `0x${escrow.escrowId.replace(/-/g, '').padEnd(64, '0')}`,
+        confirmations: confirmations,
+        threshold: 2,
+        canExecute: confirmations >= 2,
+        signers: [
+          { 
+            address: (closeInitiated?.details as any)?.initiatedBy || '0x...', 
+            signed: true, 
+            role: 'Escrow Officer',
+            signedAt: closeInitiated?.createdAt,
+          },
+          ...signLogs.map((log, i) => ({
+            address: (log.details as any)?.signedBy || '0x...',
+            signed: true,
+            role: i === 0 ? 'Supervisor' : `Signer ${i + 2}`,
+            signedAt: log.createdAt,
+          })),
+        ],
+      };
+    }
     
     return NextResponse.json({
       canClose: escrow.status === 'FUNDS_RECEIVED' || escrow.status === 'READY_TO_CLOSE',
+      status: escrow.status,
+      pendingSignatures,
       summary: {
         principal: principal,
         currentBalance: currentBalance,
-        accruedYield: accruedYield,
-        platformFee: platformFee,
-        platformFeePercent: '0.5%',
-        buyerRebate: buyerRebate,
         totalToPayees: totalToPayees,
         payeeCount: escrow.payees.length,
-        remaining: currentBalance - totalToPayees - platformFee,
+        remaining: currentBalance - totalToPayees,
       },
       payees: escrow.payees.map(p => ({
         id: p.id,
@@ -261,6 +410,8 @@ export async function GET(
         method: p.paymentMethod,
         bankName: p.bankName,
         accountLast4: p.accountLast4,
+        walletAddress: p.walletAddress,
+        status: p.status,
       })),
     });
     

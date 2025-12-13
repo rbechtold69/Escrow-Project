@@ -53,8 +53,10 @@ import { Progress } from '@/components/ui/progress';
 import { cn } from '@/lib/utils';
 import { DisbursementSheet } from '@/components/escrow/disbursement-sheet';
 import { DemoPanel } from '@/components/escrow/demo-panel';
+import { MultisigSigning } from '@/components/escrow/multisig-signing';
 import { useToast } from '@/hooks/use-toast';
 import { usePusher } from '@/hooks/use-pusher';
+import { useAccount } from 'wagmi';
 
 // ============================================================
 // Types
@@ -125,10 +127,18 @@ export default function EscrowDetailPage() {
   const { toast } = useToast();
   const escrowId = params.id as string;
 
+  const { address } = useAccount();
   const [escrow, setEscrow] = useState<EscrowData | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [isClosing, setIsClosing] = useState(false);
+  const [pendingSignatures, setPendingSignatures] = useState<{
+    safeTxHash: string;
+    confirmations: number;
+    threshold: number;
+    canExecute: boolean;
+    signers: Array<{ address: string; signed: boolean; role: string; signedAt?: Date }>;
+  } | null>(null);
 
   // Real-time updates via Pusher
   usePusher(`escrow-${escrowId}`, {
@@ -168,6 +178,7 @@ export default function EscrowDetailPage() {
 
   useEffect(() => {
     fetchEscrow();
+    fetchCloseStatus();
   }, [escrowId]);
 
   const handleRefresh = () => {
@@ -180,30 +191,66 @@ export default function EscrowDetailPage() {
     toast({ description: `${label} copied to clipboard` });
   };
 
-  const handleCloseEscrow = async () => {
-    setIsClosing(true);
+  // Fetch close status including pending signatures
+  const fetchCloseStatus = async () => {
     try {
-      const response = await fetch(`/api/escrow/${escrowId}/close`, {
-        method: 'POST',
-      });
-
-      if (!response.ok) throw new Error('Failed to initiate close');
-
-      const result = await response.json();
-      toast({
-        title: 'Close Initiated',
-        description: `Transaction pending ${result.requiredSignatures} signatures`,
-      });
-      fetchEscrow();
+      const response = await fetch(`/api/escrow/${escrowId}/close`);
+      if (response.ok) {
+        const data = await response.json();
+        if (data.pendingSignatures) {
+          setPendingSignatures(data.pendingSignatures);
+        }
+      }
     } catch (error) {
-      toast({
-        title: 'Error',
-        description: 'Failed to initiate escrow close',
-        variant: 'destructive',
-      });
-    } finally {
-      setIsClosing(false);
+      console.error('Failed to fetch close status:', error);
     }
+  };
+
+  // Initiate close (first signature)
+  const handleInitiateClose = async () => {
+    const response = await fetch(`/api/escrow/${escrowId}/close`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'initiate', signerAddress: address }),
+    });
+    if (!response.ok) throw new Error('Failed to initiate close');
+    const result = await response.json();
+    if (result.pendingSignatures) {
+      setPendingSignatures(result.pendingSignatures);
+    }
+    fetchEscrow();
+  };
+
+  // Add signature (second signature for demo)
+  const handleSign = async () => {
+    const response = await fetch(`/api/escrow/${escrowId}/close`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'sign', signerAddress: 'supervisor-demo' }),
+    });
+    if (!response.ok) throw new Error('Failed to sign transaction');
+    const result = await response.json();
+    if (result.pendingSignatures) {
+      setPendingSignatures(result.pendingSignatures);
+    }
+    fetchEscrow();
+  };
+
+  // Execute transaction (after threshold met)
+  const handleExecute = async () => {
+    const response = await fetch(`/api/escrow/${escrowId}/close`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'execute', signerAddress: address }),
+    });
+    if (!response.ok) throw new Error('Failed to execute transaction');
+    setPendingSignatures(null);
+    fetchEscrow();
+  };
+
+  // Legacy handler for backwards compatibility
+  const handleCloseEscrow = async () => {
+    await handleInitiateClose();
   };
 
   const formatCurrency = (amount: number) => {
@@ -575,95 +622,21 @@ export default function EscrowDetailPage() {
               </Card>
             )}
 
-            {/* Close Escrow Button */}
-            {canClose && (
-              <AlertDialog>
-                <AlertDialogTrigger asChild>
-                  <Button
-                    className="w-full bg-emerald-600 hover:bg-emerald-700"
-                    size="lg"
-                    disabled={isClosing}
-                  >
-                    {isClosing ? (
-                      <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                    ) : (
-                      <CheckCircle2 className="h-4 w-4 mr-2" />
-                    )}
-                    Close Escrow
-                  </Button>
-                </AlertDialogTrigger>
-                <AlertDialogContent>
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>Close Escrow</AlertDialogTitle>
-                    <AlertDialogDescription>
-                      This will initiate the close process and require 2-of-3 multisig 
-                      signatures. Once signed, USDC will be disbursed to all payees instantly.
-                    </AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <div className="my-4 p-4 bg-slate-50 rounded-lg">
-                    <div className="flex justify-between text-sm mb-2">
-                      <span>Available Balance</span>
-                      <span className="font-medium">
-                        {formatCurrency(escrow.currentBalance || 0)}
-                      </span>
-                    </div>
-                    <div className="flex justify-between text-sm">
-                      <span>Total to Payees</span>
-                      <span className="font-medium">
-                        {formatCurrency(totalToPayees)}
-                      </span>
-                    </div>
-                  </div>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel>Cancel</AlertDialogCancel>
-                    <AlertDialogAction
-                      onClick={handleCloseEscrow}
-                      className="bg-emerald-600 hover:bg-emerald-700"
-                    >
-                      Initiate Close
-                    </AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
-            )}
-
-            {/* Pending Signatures */}
-            {escrow.pendingSignatures.length > 0 && (
-              <Card className="border-amber-200 bg-amber-50">
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-lg text-amber-800">
-                    Pending Signatures
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  {escrow.pendingSignatures.map((sig) => (
-                    <div key={sig.safeTxHash} className="space-y-2">
-                      <div className="flex justify-between text-sm">
-                        <span>Confirmations</span>
-                        <span className="font-medium">
-                          {sig.confirmations} / {sig.threshold}
-                        </span>
-                      </div>
-                      <Progress 
-                        value={(sig.confirmations / sig.threshold) * 100}
-                        className="h-2"
-                      />
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="w-full mt-2"
-                        onClick={() => window.open(
-                          `https://app.safe.global/transactions/queue?safe=base:${escrow.safeAddress}`,
-                          '_blank'
-                        )}
-                      >
-                        Sign in Safe
-                        <ExternalLink className="h-3 w-3 ml-1" />
-                      </Button>
-                    </div>
-                  ))}
-                </CardContent>
-              </Card>
+            {/* Multisig Close Flow */}
+            {(canClose || escrow.status === 'CLOSING' || escrow.status === 'CLOSED') && (
+              <MultisigSigning
+                escrowId={escrow.id}
+                escrowNumber={escrow.escrowId}
+                currentBalance={escrow.currentBalance || 0}
+                totalDisbursement={totalToPayees}
+                payeeCount={escrow.payees.length}
+                status={escrow.status}
+                pendingSignatures={pendingSignatures}
+                onInitiateClose={handleInitiateClose}
+                onSign={handleSign}
+                onExecute={handleExecute}
+                onRefresh={handleRefresh}
+              />
             )}
           </div>
         </div>
