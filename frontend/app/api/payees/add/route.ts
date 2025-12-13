@@ -12,6 +12,10 @@
  * 3. Stores ONLY the returned token (bridgeBeneficiaryId)
  * 4. DISCARDS sensitive data - never written to DB or logs
  * 
+ * For USDC Direct payments:
+ * - Wallet address is stored directly (public blockchain address)
+ * - No tokenization needed - USDC sent directly on-chain
+ * 
  * ============================================================================
  */
 
@@ -42,17 +46,18 @@ const AddPayeeSchema = z.object({
   ]),
   
   // Payment details
-  paymentMethod: z.enum(['WIRE', 'ACH', 'INTERNATIONAL', 'CHECK']),
+  paymentMethod: z.enum(['USDC', 'WIRE', 'ACH', 'INTERNATIONAL', 'CHECK']),
   amount: z.number().positive('Amount must be positive').optional(),
   basisPoints: z.number().min(0).max(10000).optional(), // 0-100%
   
-  // Bank details - WILL BE TOKENIZED AND DISCARDED
-  bankName: z.string().min(1, 'Bank name is required').max(200),
-  routingNumber: z.string()
-    .regex(/^\d{9}$/, 'Routing number must be exactly 9 digits'),
-  accountNumber: z.string()
-    .regex(/^\d{4,17}$/, 'Account number must be 4-17 digits'),
-  accountType: z.enum(['checking', 'savings']).default('checking'),
+  // Bank details - WILL BE TOKENIZED AND DISCARDED (for non-USDC payments)
+  bankName: z.string().max(200).optional(),
+  routingNumber: z.string().optional(),
+  accountNumber: z.string().optional(),
+  accountType: z.enum(['checking', 'savings']).optional(),
+  
+  // USDC wallet address (for USDC payments)
+  walletAddress: z.string().optional(),
   
   // For wire transfers
   beneficiaryAddress: z.object({
@@ -62,6 +67,20 @@ const AddPayeeSchema = z.object({
     zipCode: z.string().optional(),
     country: z.string().default('US'),
   }).optional(),
+}).refine((data) => {
+  // For USDC, require valid wallet address
+  if (data.paymentMethod === 'USDC') {
+    return data.walletAddress && /^0x[a-fA-F0-9]{40}$/.test(data.walletAddress);
+  }
+  // For bank methods, require bank details
+  return (
+    data.bankName && data.bankName.length >= 1 &&
+    data.routingNumber && /^\d{9}$/.test(data.routingNumber) &&
+    data.accountNumber && /^\d{4,17}$/.test(data.accountNumber)
+  );
+}, {
+  message: 'Please provide valid payment details',
+  path: ['paymentMethod'],
 });
 
 // ============================================================================
@@ -79,6 +98,7 @@ export async function POST(request: NextRequest) {
     
     // Log the action (WITHOUT sensitive data)
     console.log(`[ADD_PAYEE] Processing payee for escrow: ${validatedData.escrowId}`);
+    console.log(`[ADD_PAYEE] Payment method: ${validatedData.paymentMethod}`);
     
     // ════════════════════════════════════════════════════════════════════════
     // STEP 2: Verify escrow exists
@@ -101,55 +121,65 @@ export async function POST(request: NextRequest) {
     }
     
     // ════════════════════════════════════════════════════════════════════════
-    // STEP 3: Tokenize bank account via Bridge.xyz (or mock)
-    // This is the ONLY place where routing/account numbers are used
+    // STEP 3: Handle payment method specific logic
     // ════════════════════════════════════════════════════════════════════════
     
-    const bridgeService = createBridgeServiceAuto();
     const payeeName = `${validatedData.firstName} ${validatedData.lastName}`;
-    const accountLast4 = validatedData.accountNumber.slice(-4);
+    let beneficiaryId: string = '';
+    let accountLast4: string | null = null;
+    let walletAddress: string | null = null;
+    let bankName: string | null = null;
     
-    let beneficiaryId: string;
-    
-    // Use appropriate method based on payment type
-    if (validatedData.paymentMethod === 'ACH') {
-      const account = await bridgeService.createACHAccount({
-        routingNumber: validatedData.routingNumber,
-        accountNumber: validatedData.accountNumber,
-        accountType: validatedData.accountType,
-        beneficiaryName: payeeName,
-      });
-      beneficiaryId = account.id;
-    } else if (validatedData.paymentMethod === 'WIRE') {
-      const account = await bridgeService.createWireAccount({
-        bankName: validatedData.bankName,
-        routingNumber: validatedData.routingNumber,
-        accountNumber: validatedData.accountNumber,
-        beneficiaryName: payeeName,
-        beneficiaryAddress: validatedData.beneficiaryAddress?.street || '',
-      });
-      beneficiaryId = account.id;
-    } else if (validatedData.paymentMethod === 'CHECK') {
-      const account = await bridgeService.createCheckAccount({
-        recipientName: payeeName,
-        addressLine1: validatedData.beneficiaryAddress?.street || '123 Main St',
-        city: validatedData.beneficiaryAddress?.city || 'San Francisco',
-        state: validatedData.beneficiaryAddress?.state || 'CA',
-        postalCode: validatedData.beneficiaryAddress?.zipCode || '94102',
-        country: validatedData.beneficiaryAddress?.country || 'US',
-      });
-      beneficiaryId = account.id;
+    if (validatedData.paymentMethod === 'USDC') {
+      // USDC Direct - no tokenization needed, just store wallet address
+      walletAddress = validatedData.walletAddress!;
+      beneficiaryId = `usdc_${walletAddress.slice(-8)}`; // Use last 8 chars as ID
+      console.log(`[ADD_PAYEE] USDC Direct payment to: ${walletAddress.slice(0, 10)}...`);
     } else {
-      // International wire - use wire for now
-      const account = await bridgeService.createWireAccount({
-        bankName: validatedData.bankName,
-        routingNumber: validatedData.routingNumber,
-        accountNumber: validatedData.accountNumber,
-        beneficiaryName: payeeName,
-        beneficiaryAddress: validatedData.beneficiaryAddress?.street || '',
-        swiftCode: 'SWIFT123',
-      });
-      beneficiaryId = account.id;
+      // Bank payment methods - tokenize via Bridge.xyz
+      const bridgeService = createBridgeServiceAuto();
+      accountLast4 = validatedData.accountNumber!.slice(-4);
+      bankName = validatedData.bankName!;
+      
+      if (validatedData.paymentMethod === 'ACH') {
+        const account = await bridgeService.createACHAccount({
+          routingNumber: validatedData.routingNumber!,
+          accountNumber: validatedData.accountNumber!,
+          accountType: validatedData.accountType || 'checking',
+          beneficiaryName: payeeName,
+        });
+        beneficiaryId = account.id;
+      } else if (validatedData.paymentMethod === 'WIRE') {
+        const account = await bridgeService.createWireAccount({
+          bankName: validatedData.bankName!,
+          routingNumber: validatedData.routingNumber!,
+          accountNumber: validatedData.accountNumber!,
+          beneficiaryName: payeeName,
+          beneficiaryAddress: validatedData.beneficiaryAddress?.street || '',
+        });
+        beneficiaryId = account.id;
+      } else if (validatedData.paymentMethod === 'CHECK') {
+        const account = await bridgeService.createCheckAccount({
+          recipientName: payeeName,
+          addressLine1: validatedData.beneficiaryAddress?.street || '123 Main St',
+          city: validatedData.beneficiaryAddress?.city || 'San Francisco',
+          state: validatedData.beneficiaryAddress?.state || 'CA',
+          postalCode: validatedData.beneficiaryAddress?.zipCode || '94102',
+          country: validatedData.beneficiaryAddress?.country || 'US',
+        });
+        beneficiaryId = account.id;
+      } else {
+        // International wire
+        const account = await bridgeService.createWireAccount({
+          bankName: validatedData.bankName!,
+          routingNumber: validatedData.routingNumber!,
+          accountNumber: validatedData.accountNumber!,
+          beneficiaryName: payeeName,
+          beneficiaryAddress: validatedData.beneficiaryAddress?.street || '',
+          swiftCode: 'SWIFT123',
+        });
+        beneficiaryId = account.id;
+      }
     }
     
     // ════════════════════════════════════════════════════════════════════════
@@ -171,8 +201,11 @@ export async function POST(request: NextRequest) {
         bridgeBeneficiaryId: beneficiaryId,
         
         // Safe metadata for UI
-        bankName: validatedData.bankName,
+        bankName: bankName,
         accountLast4: accountLast4,
+        
+        // USDC wallet address (public blockchain address)
+        walletAddress: walletAddress,
         
         status: 'PENDING',
       },
@@ -191,8 +224,9 @@ export async function POST(request: NextRequest) {
           payeeName: payeeName,
           payeeType: validatedData.payeeType,
           paymentMethod: validatedData.paymentMethod,
-          bankName: validatedData.bankName,
-          accountLast4: accountLast4,
+          ...(bankName && { bankName }),
+          ...(accountLast4 && { accountLast4 }),
+          ...(walletAddress && { walletAddress: `${walletAddress.slice(0, 10)}...` }),
         },
         actorWallet: request.headers.get('x-wallet-address') || null,
         actorIp: request.headers.get('x-forwarded-for')?.split(',')[0] || null,
@@ -203,8 +237,7 @@ export async function POST(request: NextRequest) {
     // STEP 6: Return success
     // ════════════════════════════════════════════════════════════════════════
     
-    const isMock = isMockBridgeService(bridgeService);
-    console.log(`[ADD_PAYEE] Successfully added payee: ${payee.id} (mock: ${isMock})`);
+    console.log(`[ADD_PAYEE] Successfully added payee: ${payee.id}`);
     
     return NextResponse.json({
       success: true,
@@ -219,10 +252,11 @@ export async function POST(request: NextRequest) {
         basisPoints: payee.basisPoints,
         bankName: payee.bankName,
         accountLast4: payee.accountLast4,
+        walletAddress: payee.walletAddress,
         status: payee.status,
       },
-      message: isMock 
-        ? 'TEST MODE: Using mock Bridge service.' 
+      message: validatedData.paymentMethod === 'USDC' 
+        ? 'USDC Direct payment configured.' 
         : 'Payee added successfully.',
     });
     
@@ -285,6 +319,7 @@ export async function GET(request: NextRequest) {
             basisPoints: true,
             bankName: true,
             accountLast4: true,
+            walletAddress: true,
             status: true,
             createdAt: true,
             paidAt: true,
