@@ -225,36 +225,23 @@ const payeeTypeIcons: Record<PayeeType, React.ReactNode> = {
 
 const allPayeeTypes = Object.keys(payeeTypeLabels) as PayeeType[];
 
+// Simple schema without complex refinement - validation handled in onSubmit
 const payeeSchema = z.object({
   firstName: z.string().min(1, 'First name is required'),
   lastName: z.string().min(1, 'Last name is required'),
   email: z.string().email('Valid email required').optional().or(z.literal('')),
   payeeType: z.enum(allPayeeTypes as [PayeeType, ...PayeeType[]]),
   paymentMethod: z.enum(['WIRE', 'ACH', 'CHECK', 'USDC']),
-  amount: z.number().positive('Amount must be positive').optional(),
-  basisPoints: z.number().min(0).max(10000).optional(),
+  amount: z.number().positive('Amount must be positive').optional().nullable(),
+  basisPoints: z.number().min(0).max(10000).optional().nullable(),
   usePercentage: z.boolean().default(false),
-  // Bank details (required for WIRE/ACH/CHECK)
+  // Bank details (for WIRE/ACH/CHECK)
   bankName: z.string().optional(),
   routingNumber: z.string().optional(),
   accountNumber: z.string().optional(),
   accountType: z.enum(['checking', 'savings']).default('checking'),
-  // USDC wallet address (required for USDC)
+  // USDC wallet address (for USDC)
   walletAddress: z.string().optional(),
-}).refine((data) => {
-  // For USDC, require wallet address
-  if (data.paymentMethod === 'USDC') {
-    return data.walletAddress && /^0x[a-fA-F0-9]{40}$/.test(data.walletAddress);
-  }
-  // For bank methods, require bank details
-  return (
-    data.bankName && data.bankName.length >= 2 &&
-    data.routingNumber && /^\d{9}$/.test(data.routingNumber) &&
-    data.accountNumber && /^\d{4,17}$/.test(data.accountNumber)
-  );
-}, {
-  message: 'Please provide valid payment details',
-  path: ['paymentMethod'],
 });
 
 type PayeeFormData = z.infer<typeof payeeSchema>;
@@ -322,7 +309,41 @@ export function AddPayeeForm({
   const onSubmit = async (data: PayeeFormData) => {
     setSubmitError(null);
     
+    // Manual validation for payment-specific fields
+    if (data.paymentMethod === 'USDC') {
+      if (!data.walletAddress || !/^0x[a-fA-F0-9]{40}$/.test(data.walletAddress)) {
+        setSubmitError('Please enter a valid wallet address (0x followed by 40 hex characters)');
+        return;
+      }
+    } else {
+      // Bank payment methods
+      if (!data.bankName || data.bankName.length < 2) {
+        setSubmitError('Please enter a valid bank name');
+        return;
+      }
+      if (!data.routingNumber || !/^\d{9}$/.test(data.routingNumber)) {
+        setSubmitError('Routing number must be exactly 9 digits');
+        return;
+      }
+      if (!data.accountNumber || !/^\d{4,17}$/.test(data.accountNumber)) {
+        setSubmitError('Account number must be 4-17 digits');
+        return;
+      }
+    }
+
+    // Check amount/percentage
+    if (!data.usePercentage && (!data.amount || data.amount <= 0)) {
+      setSubmitError('Please enter a valid payment amount');
+      return;
+    }
+    if (data.usePercentage && (!data.basisPoints || data.basisPoints <= 0)) {
+      setSubmitError('Please enter a valid percentage');
+      return;
+    }
+    
     try {
+      console.log('Submitting payee data:', { escrowId, paymentMethod: data.paymentMethod });
+      
       // Call the API to add payee
       const response = await fetch('/api/payees/add', {
         method: 'POST',
@@ -348,10 +369,12 @@ export function AddPayeeForm({
 
       if (!response.ok) {
         const error = await response.json();
-        throw new Error(error.error || 'Failed to add payee');
+        console.error('API error:', error);
+        throw new Error(error.error || error.details?.[0]?.message || 'Failed to add payee');
       }
 
       const result = await response.json();
+      console.log('Payee added successfully:', result);
       await onPayeeAdded(result.payee);
     } catch (error: any) {
       console.error('Failed to add payee:', error);
