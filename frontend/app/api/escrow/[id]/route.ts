@@ -57,17 +57,10 @@ export async function GET(
       );
     }
 
-    // Calculate yield info (mock calculation for now)
-    const principal = Number(escrow.initialDeposit || escrow.purchasePrice || 0);
-    const daysSinceCreation = Math.floor(
-      (Date.now() - new Date(escrow.createdAt).getTime()) / (1000 * 60 * 60 * 24)
-    );
-    const annualYieldBps = 500; // 5% APY
-    const dailyRate = annualYieldBps / 36500;
-    const accruedYield = escrow.status !== 'CREATED' 
-      ? principal * dailyRate * daysSinceCreation 
-      : 0;
-    const currentBalance = principal + accruedYield;
+    // Get actual balances from database
+    const initialDeposit = Number(escrow.initialDeposit || 0);
+    const currentBalance = Number(escrow.currentBalance || 0);
+    const depositAmount = escrow.status !== 'CREATED' ? initialDeposit : 0;
 
     // Build mock wiring instructions (in production, fetch from Bridge)
     const wiringInstructions = {
@@ -113,17 +106,12 @@ export async function GET(
       sellerName: 'Pending', // Would come from payees
       sellerEmail: '',
       createdAt: escrow.createdAt.toISOString(),
-      depositAmount: escrow.status !== 'CREATED' ? principal : undefined,
+      // Actual USDC balance from database
+      depositAmount: depositAmount,
+      currentBalance: currentBalance,
       depositReceivedAt: escrow.fundedAt?.toISOString(),
       closedAt: escrow.closedAt?.toISOString(),
       wiringInstructions,
-      yieldInfo: {
-        principalDeposited: principal,
-        currentBalance: currentBalance,
-        accruedYield: accruedYield,
-        annualYieldBps: annualYieldBps,
-        lastUpdate: new Date().toISOString(),
-      },
       payees: formattedPayees,
       pendingSignatures: [], // Would come from Safe service
       createdBy: escrow.createdBy,
@@ -211,4 +199,3 @@ export async function PATCH(
 function generateMockAccountNumber(): string {
   return Math.floor(1000000000 + Math.random() * 9000000000).toString();
 }
-

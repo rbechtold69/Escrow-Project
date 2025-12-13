@@ -43,13 +43,14 @@ export async function POST(
     const depositAmount = body.amount || Number(escrow.purchasePrice);
     
     // Update escrow to funded status
+    // In production: Bridge.xyz webhook triggers this when wire arrives
+    // The wire is converted to USDC and deposited into the Safe
     const updatedEscrow = await prisma.escrow.update({
       where: { id: escrow.id },
       data: {
         status: 'FUNDS_RECEIVED',
         initialDeposit: depositAmount,
-        currentBalance: depositAmount,
-        accruedYield: 0,
+        currentBalance: depositAmount, // USDC balance (1:1 with USD deposited)
         fundedAt: new Date(),
       },
     });
