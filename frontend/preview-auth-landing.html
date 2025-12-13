@@ -1,0 +1,533 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>EscrowBase - Sign In</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    @keyframes check-appear {
+      0% { transform: scale(0); }
+      50% { transform: scale(1.2); }
+      100% { transform: scale(1); }
+    }
+    @keyframes fade-in {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .check-appear { animation: check-appear 0.4s ease-out forwards; }
+    .fade-in { animation: fade-in 0.3s ease-out forwards; }
+  </style>
+</head>
+<body class="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
+
+  <!-- Main Container -->
+  <div class="min-h-screen flex items-center justify-center p-6">
+    
+    <!-- ═══════════════════════════════════════════════════════════════════════
+         VIEW: Landing (Choose Sign In or Create Account)
+         ═══════════════════════════════════════════════════════════════════════ -->
+    <div id="view-landing" class="w-full max-w-md">
+      <div class="bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden">
+        <!-- Header -->
+        <div class="px-8 pt-10 pb-8 text-center">
+          <div class="w-16 h-16 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-2xl flex items-center justify-center mx-auto mb-5 shadow-lg">
+            <svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
+            </svg>
+          </div>
+          <h1 class="text-2xl font-bold text-gray-900">Welcome to EscrowBase</h1>
+          <p class="text-gray-500 mt-2">Secure escrow management for real estate</p>
+        </div>
+
+        <!-- Buttons -->
+        <div class="px-8 pb-10 space-y-4">
+          <button onclick="showView('signin')" class="w-full py-4 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-semibold rounded-xl hover:from-blue-700 hover:to-indigo-700 shadow-lg shadow-blue-500/25 flex items-center justify-center gap-3 transition-all">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1"/>
+            </svg>
+            Sign In
+          </button>
+          
+          <button onclick="showView('signup')" class="w-full py-4 border-2 border-gray-200 text-gray-700 font-semibold rounded-xl hover:bg-gray-50 hover:border-gray-300 flex items-center justify-center gap-3 transition-all">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"/>
+            </svg>
+            Create Account
+          </button>
+
+          <!-- Security Note -->
+          <div class="flex items-center justify-center gap-2 text-xs text-gray-400 pt-4">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
+            </svg>
+            <span>Secured with passkey authentication</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════════════════════════
+         VIEW: Sign In
+         ═══════════════════════════════════════════════════════════════════════ -->
+    <div id="view-signin" class="w-full max-w-md hidden">
+      <div class="bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden">
+        <!-- Header -->
+        <div class="px-8 pt-10 pb-6 text-center">
+          <div class="w-16 h-16 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-2xl flex items-center justify-center mx-auto mb-5 shadow-lg">
+            <svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1"/>
+            </svg>
+          </div>
+          <h2 class="text-2xl font-bold text-gray-900">Sign In</h2>
+          <p class="text-gray-500 mt-2">Use your passkey to continue</p>
+        </div>
+
+        <!-- Sign In Button -->
+        <div class="px-8 pb-8 space-y-5">
+          <button onclick="startSignIn()" id="signin-btn" class="w-full py-4 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-semibold rounded-xl hover:from-blue-700 hover:to-indigo-700 shadow-lg shadow-blue-500/25 flex items-center justify-center gap-3 transition-all">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"/>
+            </svg>
+            Continue with Passkey
+          </button>
+
+          <div class="text-center">
+            <button onclick="showView('landing')" class="text-gray-500 text-sm hover:text-gray-700">
+              ← Back
+            </button>
+          </div>
+
+          <div class="text-center pt-2 border-t border-gray-100">
+            <span class="text-gray-500 text-sm">Don't have an account? </span>
+            <button onclick="showView('signup')" class="text-blue-600 text-sm font-medium hover:text-blue-700">
+              Create Account
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════════════════════════
+         VIEW: Create Account
+         ═══════════════════════════════════════════════════════════════════════ -->
+    <div id="view-signup" class="w-full max-w-md hidden">
+      <div class="bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden">
+        <!-- Header -->
+        <div class="px-8 pt-10 pb-6 text-center">
+          <div class="w-16 h-16 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-2xl flex items-center justify-center mx-auto mb-5 shadow-lg">
+            <svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"/>
+            </svg>
+          </div>
+          <h2 class="text-2xl font-bold text-gray-900">Create Account</h2>
+          <p class="text-gray-500 mt-2">Get started in under a minute</p>
+        </div>
+
+        <!-- Form -->
+        <form id="signup-form" class="px-8 pb-8 space-y-5">
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-2">Full Name</label>
+            <input type="text" id="signup-name" placeholder="Jane Smith" required
+                   class="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-shadow">
+          </div>
+          
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-2">Email Address</label>
+            <input type="email" id="signup-email" placeholder="jane@company.com" required
+                   class="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-shadow">
+          </div>
+
+          <button type="button" onclick="startSignUp()" id="signup-btn" class="w-full py-4 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-semibold rounded-xl hover:from-blue-700 hover:to-indigo-700 shadow-lg shadow-blue-500/25 flex items-center justify-center gap-3 transition-all">
+            Create Account
+          </button>
+
+          <div class="text-center">
+            <button type="button" onclick="showView('landing')" class="text-gray-500 text-sm hover:text-gray-700">
+              ← Back
+            </button>
+          </div>
+
+          <div class="text-center pt-2 border-t border-gray-100">
+            <span class="text-gray-500 text-sm">Already have an account? </span>
+            <button type="button" onclick="showView('signin')" class="text-blue-600 text-sm font-medium hover:text-blue-700">
+              Sign In
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════════════════════════
+         VIEW: Dashboard (Logged In)
+         ═══════════════════════════════════════════════════════════════════════ -->
+    <div id="view-dashboard" class="w-full max-w-2xl hidden">
+      <div class="bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden">
+        <!-- Header -->
+        <div class="px-8 py-6 border-b border-gray-100 flex items-center justify-between">
+          <div class="flex items-center gap-3">
+            <div class="w-10 h-10 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center">
+              <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
+              </svg>
+            </div>
+            <span class="text-lg font-bold text-gray-900">EscrowBase</span>
+          </div>
+          
+          <div class="flex items-center gap-4">
+            <div class="flex items-center gap-3 px-4 py-2 bg-gray-50 rounded-full">
+              <div class="w-8 h-8 bg-gradient-to-br from-blue-400 to-indigo-500 rounded-full flex items-center justify-center">
+                <span id="user-initial" class="text-white text-sm font-medium">J</span>
+              </div>
+              <div>
+                <p id="user-name" class="text-sm font-medium text-gray-700">Jane Smith</p>
+                <p id="user-email" class="text-xs text-gray-500">jane@company.com</p>
+              </div>
+              <span class="px-2 py-0.5 bg-green-100 text-green-700 text-xs rounded-full">Active</span>
+            </div>
+            <button onclick="signOut()" class="px-4 py-2 text-sm text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors">
+              Sign Out
+            </button>
+          </div>
+        </div>
+
+        <!-- Dashboard Content -->
+        <div class="p-8">
+          <div class="text-center py-12">
+            <div class="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
+              <svg class="w-10 h-10 text-green-600 check-appear" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+              </svg>
+            </div>
+            <h2 class="text-2xl font-bold text-gray-900 mb-2">You're signed in!</h2>
+            <p class="text-gray-500 mb-8">Welcome to your escrow dashboard</p>
+            
+            <div class="grid grid-cols-3 gap-4 max-w-md mx-auto">
+              <div class="bg-gray-50 rounded-xl p-4 text-center">
+                <p class="text-2xl font-bold text-gray-900">0</p>
+                <p class="text-xs text-gray-500">Active Escrows</p>
+              </div>
+              <div class="bg-gray-50 rounded-xl p-4 text-center">
+                <p class="text-2xl font-bold text-gray-900">$0</p>
+                <p class="text-xs text-gray-500">In Escrow</p>
+              </div>
+              <div class="bg-gray-50 rounded-xl p-4 text-center">
+                <p class="text-2xl font-bold text-gray-900">$0</p>
+                <p class="text-xs text-gray-500">Yield Earned</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════════════════
+       MODAL: Coinbase Auth Popup
+       ═══════════════════════════════════════════════════════════════════════ -->
+  <div id="modal-coinbase" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden fade-in">
+      <div class="bg-blue-600 p-4 text-white text-center">
+        <div class="w-10 h-10 bg-white rounded-lg flex items-center justify-center mx-auto mb-2">
+          <svg class="w-6 h-6 text-blue-600" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm-1-13h2v6h-2zm0 8h2v2h-2z"/>
+          </svg>
+        </div>
+        <p class="font-semibold">Coinbase</p>
+      </div>
+      <div class="p-6">
+        <h3 id="modal-title" class="text-lg font-semibold text-gray-900 text-center mb-6">Sign in to EscrowBase</h3>
+        <div class="space-y-3">
+          <button onclick="selectPasskey()" class="w-full p-4 border-2 border-gray-200 rounded-xl hover:border-blue-500 hover:bg-blue-50 transition-all flex items-center gap-4">
+            <div class="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
+              <svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"/>
+              </svg>
+            </div>
+            <div class="text-left">
+              <p class="font-medium text-gray-900">Use Passkey</p>
+              <p class="text-xs text-gray-500">Windows Hello / PIN</p>
+            </div>
+          </button>
+          <button onclick="selectQR()" class="w-full p-4 border-2 border-gray-200 rounded-xl hover:border-blue-500 hover:bg-blue-50 transition-all flex items-center gap-4">
+            <div class="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center">
+              <svg class="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z"/>
+              </svg>
+            </div>
+            <div class="text-left">
+              <p class="font-medium text-gray-900">Scan with Phone</p>
+              <p class="text-xs text-gray-500">Use your mobile device</p>
+            </div>
+          </button>
+        </div>
+        <button onclick="closeModal()" class="w-full mt-4 text-sm text-gray-500 hover:text-gray-700">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════════════════
+       MODAL: Windows Hello / PIN
+       ═══════════════════════════════════════════════════════════════════════ -->
+  <div id="modal-pin" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden fade-in">
+      <div class="bg-slate-800 p-6 text-center">
+        <svg class="w-12 h-12 text-white mx-auto mb-2" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M3 5.5A2.5 2.5 0 015.5 3h13A2.5 2.5 0 0121 5.5v13a2.5 2.5 0 01-2.5 2.5h-13A2.5 2.5 0 013 18.5v-13zM5.5 5a.5.5 0 00-.5.5v13a.5.5 0 00.5.5h13a.5.5 0 00.5-.5v-13a.5.5 0 00-.5-.5h-13z"/>
+        </svg>
+        <h3 class="text-white font-semibold">Windows Security</h3>
+      </div>
+      <div class="p-6 text-center">
+        <p class="text-gray-700 mb-6">Enter your PIN to sign in</p>
+        <input type="password" id="pin-input" maxlength="6" placeholder="••••••"
+               class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl text-center text-2xl tracking-widest focus:outline-none focus:border-blue-500">
+        <button onclick="submitPIN()" class="w-full mt-4 py-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 font-medium">
+          Sign in
+        </button>
+        <button onclick="closeModal()" class="w-full mt-2 text-sm text-gray-500 hover:text-gray-700">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════════════════
+       MODAL: QR Code
+       ═══════════════════════════════════════════════════════════════════════ -->
+  <div id="modal-qr" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden fade-in">
+      <div class="bg-blue-600 p-4 text-white text-center">
+        <p class="font-semibold">Scan with Phone</p>
+      </div>
+      <div class="p-6 text-center">
+        <p class="text-gray-600 mb-6">Scan this QR code with your phone's camera</p>
+        <!-- Simulated QR Code -->
+        <div class="w-48 h-48 mx-auto bg-white border-2 border-gray-200 rounded-xl p-4 mb-6">
+          <div class="w-full h-full grid grid-cols-8 gap-0.5">
+            <script>
+              // Generate random QR-like pattern
+              document.currentScript.parentElement.innerHTML = Array(64).fill(0).map(() => 
+                `<div class="bg-${Math.random() > 0.5 ? 'gray-900' : 'white'}"></div>`
+              ).join('');
+            </script>
+          </div>
+        </div>
+        <p class="text-sm text-gray-500">Open your phone's camera and point it at this code</p>
+        <button onclick="simulateQRScan()" class="w-full mt-4 py-3 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 font-medium">
+          Simulate Phone Approval
+        </button>
+        <button onclick="closeModal()" class="w-full mt-2 text-sm text-gray-500 hover:text-gray-700">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ═══════════════════════════════════════════════════════════════════════════
+    // STATE
+    // ═══════════════════════════════════════════════════════════════════════════
+    
+    let currentFlow = null; // 'signin' or 'signup'
+    let userData = {
+      name: '',
+      email: ''
+    };
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // VIEW NAVIGATION
+    // ═══════════════════════════════════════════════════════════════════════════
+    
+    function showView(viewName) {
+      // Hide all views
+      document.querySelectorAll('[id^="view-"]').forEach(el => el.classList.add('hidden'));
+      
+      // Show selected view
+      const view = document.getElementById('view-' + viewName);
+      if (view) {
+        view.classList.remove('hidden');
+        view.classList.add('fade-in');
+      }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // SIGN IN FLOW
+    // ═══════════════════════════════════════════════════════════════════════════
+    
+    function startSignIn() {
+      currentFlow = 'signin';
+      
+      // Update button state
+      const btn = document.getElementById('signin-btn');
+      btn.innerHTML = `
+        <svg class="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
+          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+        </svg>
+        Connecting...
+      `;
+      btn.disabled = true;
+      
+      // Show Coinbase modal after brief delay
+      setTimeout(() => {
+        document.getElementById('modal-title').textContent = 'Sign in to EscrowBase';
+        document.getElementById('modal-coinbase').classList.remove('hidden');
+      }, 500);
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // SIGN UP FLOW
+    // ═══════════════════════════════════════════════════════════════════════════
+    
+    function startSignUp() {
+      const name = document.getElementById('signup-name').value.trim();
+      const email = document.getElementById('signup-email').value.trim();
+      
+      // Validate
+      if (!name) {
+        alert('Please enter your name');
+        return;
+      }
+      if (!email || !email.includes('@')) {
+        alert('Please enter a valid email');
+        return;
+      }
+      
+      // Store for later
+      userData.name = name;
+      userData.email = email;
+      currentFlow = 'signup';
+      
+      // Update button state
+      const btn = document.getElementById('signup-btn');
+      btn.innerHTML = `
+        <svg class="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
+          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+        </svg>
+        Creating Account...
+      `;
+      btn.disabled = true;
+      
+      // Show Coinbase modal after brief delay
+      setTimeout(() => {
+        document.getElementById('modal-title').textContent = 'Create your account';
+        document.getElementById('modal-coinbase').classList.remove('hidden');
+      }, 500);
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // PASSKEY AUTHENTICATION
+    // ═══════════════════════════════════════════════════════════════════════════
+    
+    function selectPasskey() {
+      document.getElementById('modal-coinbase').classList.add('hidden');
+      document.getElementById('modal-pin').classList.remove('hidden');
+      document.getElementById('pin-input').focus();
+    }
+    
+    function selectQR() {
+      document.getElementById('modal-coinbase').classList.add('hidden');
+      document.getElementById('modal-qr').classList.remove('hidden');
+    }
+    
+    function submitPIN() {
+      const pin = document.getElementById('pin-input').value;
+      if (pin.length < 4) {
+        alert('Please enter your PIN');
+        return;
+      }
+      
+      completeAuth();
+    }
+    
+    function simulateQRScan() {
+      completeAuth();
+    }
+    
+    function completeAuth() {
+      // Close any open modals
+      closeModal();
+      
+      // If signing up, use the form data
+      // If signing in, use demo data
+      if (currentFlow === 'signup') {
+        // Already have userData from form
+      } else {
+        // Demo user for sign in
+        userData.name = 'Jane Smith';
+        userData.email = 'jane@company.com';
+      }
+      
+      // Update dashboard with user info
+      document.getElementById('user-name').textContent = userData.name;
+      document.getElementById('user-email').textContent = userData.email;
+      document.getElementById('user-initial').textContent = userData.name.charAt(0).toUpperCase();
+      
+      // Show dashboard
+      showView('dashboard');
+      
+      // Reset form buttons
+      resetButtons();
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // SIGN OUT
+    // ═══════════════════════════════════════════════════════════════════════════
+    
+    function signOut() {
+      userData = { name: '', email: '' };
+      currentFlow = null;
+      
+      // Clear form inputs
+      document.getElementById('signup-name').value = '';
+      document.getElementById('signup-email').value = '';
+      document.getElementById('pin-input').value = '';
+      
+      // Go back to landing
+      showView('landing');
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // UTILITIES
+    // ═══════════════════════════════════════════════════════════════════════════
+    
+    function closeModal() {
+      document.querySelectorAll('[id^="modal-"]').forEach(el => el.classList.add('hidden'));
+      document.getElementById('pin-input').value = '';
+      resetButtons();
+    }
+    
+    function resetButtons() {
+      // Reset sign in button
+      const signinBtn = document.getElementById('signin-btn');
+      signinBtn.innerHTML = `
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"/>
+        </svg>
+        Continue with Passkey
+      `;
+      signinBtn.disabled = false;
+      
+      // Reset sign up button
+      const signupBtn = document.getElementById('signup-btn');
+      signupBtn.innerHTML = 'Create Account';
+      signupBtn.disabled = false;
+    }
+
+    // Close modals on backdrop click
+    document.querySelectorAll('[id^="modal-"]').forEach(modal => {
+      modal.addEventListener('click', (e) => {
+        if (e.target === modal) {
+          closeModal();
+        }
+      });
+    });
+
+    // Handle Enter key in PIN input
+    document.getElementById('pin-input').addEventListener('keyup', (e) => {
+      if (e.key === 'Enter') {
+        submitPIN();
+      }
+    });
+  </script>
+
+</body>
+</html>

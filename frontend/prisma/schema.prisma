@@ -1,0 +1,325 @@
+// ============================================================================
+// ESCROWBASE DATABASE SCHEMA
+// ============================================================================
+// 
+// SECURITY ARCHITECTURE:
+// ----------------------
+// This schema follows a "Zero PII" principle for banking data.
+// 
+// ❌ WE DO NOT STORE:
+//    - Bank account numbers
+//    - Routing numbers  
+//    - Full SSNs
+//    - Any data that could be used for unauthorized wire transfers
+//
+// ✅ WE DO STORE:
+//    - Bridge.xyz tokenized IDs (e.g., "ext_acct_abc123")
+//    - Non-sensitive metadata (names, types, amounts)
+//    - Our own internal reference IDs
+//
+// WHY THIS MATTERS:
+// If our database is ever breached, attackers get NOTHING useful.
+// They cannot initiate wire transfers with just a Bridge beneficiary ID.
+// The actual bank details are encrypted and stored by Bridge.xyz,
+// a SOC 2 Type II compliant financial infrastructure provider.
+//
+// ============================================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================================================
+// USER / AUTH
+// ============================================================================
+
+model User {
+  id            String    @id @default(cuid())
+  
+  // Coinbase Smart Wallet address (public, not sensitive)
+  walletAddress String    @unique
+  
+  // Display name (optional, user-provided)
+  displayName   String?
+  
+  // Email for notifications (optional)
+  email         String?
+  
+  // Role-based access
+  role          UserRole  @default(ESCROW_OFFICER)
+  
+  // Timestamps
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  lastLoginAt   DateTime?
+  
+  // Relations
+  escrows       Escrow[]
+  
+  @@index([walletAddress])
+}
+
+enum UserRole {
+  ESCROW_OFFICER
+  ADMIN
+  VIEWER
+}
+
+// ============================================================================
+// ESCROW
+// ============================================================================
+
+model Escrow {
+  id              String       @id @default(cuid())
+  
+  // Human-readable escrow ID (e.g., "ESC-2024-001847")
+  escrowId        String       @unique
+  
+  // Property details (non-sensitive)
+  propertyAddress String
+  city            String
+  state           String
+  zipCode         String
+  purchasePrice   Decimal      @db.Decimal(18, 2)
+  
+  // Buyer info (for yield rebate)
+  buyerFirstName  String
+  buyerLastName   String
+  buyerEmail      String
+  
+  // ══════════════════════════════════════════════════════════════════════════
+  // BRIDGE.XYZ TOKENIZED REFERENCE
+  // ══════════════════════════════════════════════════════════════════════════
+  // This is the ONLY banking reference we store.
+  // It's a token that points to a virtual account in Bridge's secure vault.
+  // We CANNOT retrieve the actual bank details from this ID.
+  // ══════════════════════════════════════════════════════════════════════════
+  bridgeVirtualAccountId  String?
+  
+  // On-chain references (public blockchain data, not sensitive)
+  vaultAddress    String?      // Smart contract address on Base
+  safeAddress     String?      // Gnosis Safe multisig address
+  
+  // Status tracking
+  status          EscrowStatus @default(CREATED)
+  
+  // Financial tracking (we track amounts, not bank details)
+  initialDeposit  Decimal?     @db.Decimal(18, 6)  // USDC deposited
+  currentBalance  Decimal?     @db.Decimal(18, 6)  // Current USDM value
+  accruedYield    Decimal?     @db.Decimal(18, 6)  // Yield earned
+  
+  // Transaction hashes (public blockchain data)
+  depositTxHash   String?
+  closeTxHash     String?
+  
+  // Timestamps
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+  fundedAt        DateTime?
+  closedAt        DateTime?
+  
+  // Relations
+  createdBy       User         @relation(fields: [createdById], references: [id])
+  createdById     String
+  payees          Payee[]
+  activityLogs    ActivityLog[]
+  
+  @@index([escrowId])
+  @@index([status])
+  @@index([createdById])
+}
+
+enum EscrowStatus {
+  CREATED           // Escrow opened, awaiting funds
+  DEPOSIT_PENDING   // Wire initiated, not yet received
+  FUNDS_RECEIVED    // Funds received, now earning yield
+  READY_TO_CLOSE    // All payees configured, ready for disbursement
+  CLOSING           // Close transaction in progress
+  CLOSED            // All funds disbursed
+  CANCELLED         // Escrow cancelled
+}
+
+// ============================================================================
+// PAYEE (TOKENIZED BANK REFERENCES)
+// ============================================================================
+// 
+// ⚠️  CRITICAL SECURITY DESIGN ⚠️
+// 
+// This table stores REFERENCES to bank accounts, NOT the actual bank data.
+// 
+// The `bridgeBeneficiaryId` is a token issued by Bridge.xyz when we submit
+// the payee's bank details through their secure API. Bridge stores the
+// actual routing/account numbers in their PCI-compliant, SOC 2 vault.
+//
+// WHAT HAPPENS WHEN WE ADD A PAYEE:
+// 1. User enters: Name, Bank Name, Routing #, Account #
+// 2. We POST to Bridge.xyz /external_accounts
+// 3. Bridge returns: { id: "ext_acct_abc123", ... }
+// 4. We store ONLY the id in `bridgeBeneficiaryId`
+// 5. We IMMEDIATELY DISCARD the routing/account numbers
+// 6. They are NEVER written to our database or logs
+//
+// WHAT HAPPENS WHEN WE PAY A PAYEE:
+// 1. We call Bridge.xyz POST /transfers with the beneficiary_id
+// 2. Bridge looks up the actual bank details in THEIR vault
+// 3. Bridge initiates the wire/ACH
+// 4. We never see the bank details again
+//
+// ============================================================================
+
+model Payee {
+  id              String       @id @default(cuid())
+  
+  // ══════════════════════════════════════════════════════════════════════════
+  // SAFE TO STORE: Non-sensitive identifiers
+  // ══════════════════════════════════════════════════════════════════════════
+  firstName       String
+  lastName        String
+  email           String?
+  
+  // Payee classification (for reporting, not security-sensitive)
+  payeeType       PayeeType
+  
+  // ══════════════════════════════════════════════════════════════════════════
+  // TOKENIZED BANK REFERENCE (Bridge.xyz)
+  // ══════════════════════════════════════════════════════════════════════════
+  // This is the ONLY banking reference we store.
+  // Format: "ext_acct_xxxxxxxxxxxx" 
+  // This token is USELESS without Bridge.xyz API credentials.
+  // Even if stolen, an attacker cannot:
+  //   - Retrieve the bank account number
+  //   - Retrieve the routing number
+  //   - Initiate transfers (requires our API key + webhook verification)
+  // ══════════════════════════════════════════════════════════════════════════
+  bridgeBeneficiaryId  String
+  
+  // ══════════════════════════════════════════════════════════════════════════
+  // SAFE TO STORE: Non-sensitive bank metadata
+  // ══════════════════════════════════════════════════════════════════════════
+  // We store the bank NAME for display purposes only.
+  // This is public information (you can Google any bank's name).
+  bankName        String?
+  
+  // Last 4 digits of account (for user verification UI)
+  // This is standard practice and not sufficient for fraud.
+  accountLast4    String?
+  
+  // Payment method preference
+  paymentMethod   PaymentMethod
+  
+  // ══════════════════════════════════════════════════════════════════════════
+  // FINANCIAL DATA (amounts, not bank details)
+  // ══════════════════════════════════════════════════════════════════════════
+  amount          Decimal?     @db.Decimal(18, 2)  // Fixed amount
+  basisPoints     Int?         // Percentage of purchase price (e.g., 300 = 3%)
+  
+  // Status
+  status          PayeeStatus  @default(PENDING)
+  
+  // Bridge transfer reference (for tracking payout)
+  bridgeTransferId    String?
+  
+  // Timestamps  
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+  paidAt          DateTime?
+  
+  // Relations
+  escrow          Escrow       @relation(fields: [escrowId], references: [id], onDelete: Cascade)
+  escrowId        String
+  
+  @@index([escrowId])
+  @@index([bridgeBeneficiaryId])
+  @@index([status])
+}
+
+enum PayeeType {
+  BUYER
+  SELLER
+  BUYER_AGENT
+  LISTING_AGENT
+  BUYER_LENDER
+  LOAN_OFFICER
+  ESCROW_COMPANY
+  TITLE_INSURANCE
+  UNDERWRITER
+  APPRAISER
+  APPRAISAL_MGMT
+  HOME_INSURANCE
+  NOTARY
+  TC_BUYER
+  TC_SELLER
+  HOA
+  HOA_MGMT
+  MORTGAGE_PAYOFF
+  HELOC_LENDER
+  LIEN_HOLDER
+  PROPERTY_TAX
+  COUNTY_RECORDER
+  HAZARD_DISCLOSURE
+  HOME_WARRANTY
+  COURIER_SERVICE
+  CREDIT_AGENCY
+  OTHER
+}
+
+enum PaymentMethod {
+  WIRE          // Domestic wire transfer
+  ACH           // ACH transfer (slower, cheaper)
+  INTERNATIONAL // International wire (SWIFT)
+  CHECK         // Physical check
+}
+
+enum PayeeStatus {
+  PENDING       // Not yet processed
+  QUEUED        // Queued for payout
+  PROCESSING    // Bridge is processing
+  COMPLETED     // Funds sent
+  FAILED        // Transfer failed
+}
+
+// ============================================================================
+// ACTIVITY LOG (Audit Trail)
+// ============================================================================
+
+model ActivityLog {
+  id          String   @id @default(cuid())
+  
+  // What happened
+  action      String   // e.g., "PAYEE_ADDED", "ESCROW_CLOSED"
+  details     Json?    // Additional context (NO sensitive data)
+  
+  // Who did it
+  actorWallet String?  // Wallet address that performed action
+  actorIp     String?  // IP address (for security auditing)
+  
+  // Timestamps
+  createdAt   DateTime @default(now())
+  
+  // Relations
+  escrow      Escrow   @relation(fields: [escrowId], references: [id], onDelete: Cascade)
+  escrowId    String
+  
+  @@index([escrowId])
+  @@index([createdAt])
+}
+
+// ============================================================================
+// END OF SCHEMA
+// ============================================================================
+//
+// SECURITY CHECKLIST:
+// ✅ No routing numbers stored
+// ✅ No account numbers stored
+// ✅ No SSNs stored
+// ✅ No credit card numbers stored
+// ✅ Only Bridge.xyz tokenized IDs for banking
+// ✅ Audit trail for all actions
+// ✅ Role-based access control
+//
+// ============================================================================

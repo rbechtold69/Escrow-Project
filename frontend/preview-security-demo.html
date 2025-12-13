@@ -1,0 +1,938 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>EscrowBase - Secure Architecture Demo</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    @keyframes pulse-green { 0%, 100% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.4); } 50% { box-shadow: 0 0 0 8px rgba(34, 197, 94, 0); } }
+    @keyframes data-flow { 0% { transform: translateX(0); opacity: 0; } 50% { opacity: 1; } 100% { transform: translateX(100%); opacity: 0; } }
+    @keyframes shred { 0% { transform: translateY(0) rotate(0deg); opacity: 1; } 100% { transform: translateY(60px) rotate(15deg); opacity: 0; } }
+    @keyframes check-appear { 0% { transform: scale(0); } 50% { transform: scale(1.2); } 100% { transform: scale(1); } }
+    @keyframes lock-pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.1); } }
+    @keyframes slide-up { 0% { transform: translateY(20px); opacity: 0; } 100% { transform: translateY(0); opacity: 1; } }
+    @keyframes typing { from { width: 0; } to { width: 100%; } }
+    @keyframes blink { 50% { border-color: transparent; } }
+    .pulse-green { animation: pulse-green 2s infinite; }
+    .data-flow { animation: data-flow 1.5s ease-in-out infinite; }
+    .shred { animation: shred 0.6s ease-out forwards; }
+    .check-appear { animation: check-appear 0.4s ease-out forwards; }
+    .lock-pulse { animation: lock-pulse 1.5s ease-in-out infinite; }
+    .slide-up { animation: slide-up 0.5s ease-out forwards; }
+    .gradient-security { background: linear-gradient(135deg, #1e3a5f 0%, #0f172a 100%); }
+    .gradient-card { background: linear-gradient(145deg, #ffffff 0%, #f8fafc 100%); }
+    .redacted { 
+      background: repeating-linear-gradient(90deg, #374151, #374151 6px, transparent 6px, transparent 10px);
+      color: transparent;
+      user-select: none;
+      border-radius: 4px;
+    }
+    .typing-effect {
+      overflow: hidden;
+      white-space: nowrap;
+      border-right: 2px solid #3b82f6;
+      animation: typing 2s steps(30) forwards, blink 0.7s step-end infinite;
+    }
+  </style>
+</head>
+<body class="bg-slate-50 min-h-screen">
+
+  <!-- Navigation -->
+  <nav class="bg-white border-b border-gray-200 sticky top-0 z-50">
+    <div class="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center">
+          <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
+          </svg>
+        </div>
+        <span class="text-xl font-bold text-gray-900">EscrowBase</span>
+      </div>
+      <div class="flex items-center gap-4">
+        <button onclick="showTab('overview')" id="tab-overview" class="tab-btn px-4 py-2 text-sm font-medium text-blue-600 bg-blue-50 rounded-lg">Overview</button>
+        <button onclick="showTab('signup')" id="tab-signup" class="tab-btn px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100 rounded-lg">Sign Up Flow</button>
+        <button onclick="showTab('login')" id="tab-login" class="tab-btn px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100 rounded-lg">Login Flow</button>
+        <button onclick="showTab('payee')" id="tab-payee" class="tab-btn px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100 rounded-lg">Add Payee</button>
+        <button onclick="showTab('security')" id="tab-security" class="tab-btn px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100 rounded-lg">Security</button>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Main Content -->
+  <main class="max-w-6xl mx-auto px-6 py-8">
+
+    <!-- ═══════════════════════════════════════════════════════════════════════
+         TAB: Overview
+         ═══════════════════════════════════════════════════════════════════════ -->
+    <div id="content-overview" class="tab-content">
+      <div class="text-center mb-12">
+        <h1 class="text-4xl font-bold text-gray-900 mb-4">Secure Blockchain Escrow Platform</h1>
+        <p class="text-xl text-gray-600 max-w-2xl mx-auto">
+          Passkey authentication, tokenized banking, and yield-generating escrow accounts
+        </p>
+      </div>
+
+      <!-- Feature Cards -->
+      <div class="grid md:grid-cols-3 gap-6 mb-12">
+        <!-- Invisible Auth -->
+        <div class="bg-white rounded-2xl p-6 border border-gray-100 shadow-sm hover:shadow-lg transition-shadow">
+          <div class="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center mb-4">
+            <svg class="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"/>
+            </svg>
+          </div>
+          <h3 class="text-lg font-semibold text-gray-900 mb-2">Invisible Wallet Auth</h3>
+          <p class="text-gray-600 text-sm">No seed phrases. No extensions. Just passkey authentication that works on any device.</p>
+          <div class="mt-4 flex flex-wrap gap-2">
+            <span class="px-2 py-1 bg-blue-50 text-blue-700 text-xs rounded-full">Passkey</span>
+            <span class="px-2 py-1 bg-blue-50 text-blue-700 text-xs rounded-full">Smart Wallet</span>
+          </div>
+        </div>
+
+        <!-- Zero PII -->
+        <div class="bg-white rounded-2xl p-6 border border-gray-100 shadow-sm hover:shadow-lg transition-shadow">
+          <div class="w-12 h-12 bg-green-100 rounded-xl flex items-center justify-center mb-4">
+            <svg class="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
+            </svg>
+          </div>
+          <h3 class="text-lg font-semibold text-gray-900 mb-2">Zero PII Storage</h3>
+          <p class="text-gray-600 text-sm">Bank details tokenized via Bridge.xyz. Routing and account numbers never touch our database.</p>
+          <div class="mt-4 flex flex-wrap gap-2">
+            <span class="px-2 py-1 bg-green-50 text-green-700 text-xs rounded-full">Tokenized</span>
+            <span class="px-2 py-1 bg-green-50 text-green-700 text-xs rounded-full">SOC 2</span>
+          </div>
+        </div>
+
+        <!-- Yield Generation -->
+        <div class="bg-white rounded-2xl p-6 border border-gray-100 shadow-sm hover:shadow-lg transition-shadow">
+          <div class="w-12 h-12 bg-emerald-100 rounded-xl flex items-center justify-center mb-4">
+            <svg class="w-6 h-6 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+            </svg>
+          </div>
+          <h3 class="text-lg font-semibold text-gray-900 mb-2">5% APY Yield</h3>
+          <p class="text-gray-600 text-sm">Escrow funds earn yield via Mountain Protocol USDM. Yield rebated to buyer on close.</p>
+          <div class="mt-4 flex flex-wrap gap-2">
+            <span class="px-2 py-1 bg-emerald-50 text-emerald-700 text-xs rounded-full">USDM</span>
+            <span class="px-2 py-1 bg-emerald-50 text-emerald-700 text-xs rounded-full">T-Bills</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- System Architecture -->
+      <div class="bg-white rounded-2xl p-8 border border-gray-100 shadow-sm">
+        <h2 class="text-2xl font-bold text-gray-900 mb-6">System Architecture</h2>
+        <div class="bg-slate-900 rounded-xl p-6 font-mono text-sm text-gray-300 overflow-x-auto">
+<pre class="whitespace-pre">
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                              USER JOURNEY                                   │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+  ┌──────────────┐         ┌──────────────┐         ┌──────────────┐
+  │   SIGN UP    │         │    LOGIN     │         │  ADD PAYEE   │
+  │              │         │              │         │              │
+  │ Name + Email │         │  Click Sign  │         │ Bank Details │
+  │      ↓       │         │     In       │         │      ↓       │
+  │ Create Acct  │         │      ↓       │         │  Tokenize    │
+  │      ↓       │         │   Passkey    │         │      ↓       │
+  │   Passkey    │         │   Prompt     │         │  Store ID    │
+  │    Setup     │         │      ↓       │         │    Only      │
+  │      ↓       │         │   Verify     │         │              │
+  │  Dashboard   │         │      ↓       │         │  ✓ Secure    │
+  └──────────────┘         │  Dashboard   │         └──────────────┘
+                           └──────────────┘
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                             DATA FLOW                                       │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+  <span class="text-green-400">User</span>                <span class="text-blue-400">EscrowBase</span>              <span class="text-purple-400">Bridge.xyz</span>             <span class="text-amber-400">Blockchain</span>
+   │                       │                       │                       │
+   │ 1. Wire funds         │                       │                       │
+   ├──────────────────────►│                       │                       │
+   │                       │ 2. Webhook received   │                       │
+   │                       │◄──────────────────────┤                       │
+   │                       │                       │                       │
+   │                       │ 3. Deposit USDC       │                       │
+   │                       ├──────────────────────────────────────────────►│
+   │                       │                       │                       │
+   │                       │ 4. Swap USDC → USDM   │                       │
+   │                       │                       │               <span class="text-emerald-400">Earn 5%</span> │
+   │                       │                       │               <span class="text-emerald-400">APY</span>     │
+   │                       │                       │                       │
+   │ 5. Close escrow       │                       │                       │
+   ├──────────────────────►│                       │                       │
+   │                       │ 6. Swap USDM → USDC   │                       │
+   │                       │◄──────────────────────────────────────────────┤
+   │                       │                       │                       │
+   │                       │ 7. Send to Bridge     │                       │
+   │                       ├──────────────────────►│                       │
+   │                       │                       │                       │
+   │ 8. Receive wire       │                       │                       │
+   │◄──────────────────────┼───────────────────────┤                       │
+</pre>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════════════════════════
+         TAB: Sign Up Flow
+         ═══════════════════════════════════════════════════════════════════════ -->
+    <div id="content-signup" class="tab-content hidden">
+      <div class="grid md:grid-cols-2 gap-8">
+        <!-- Sign Up Form -->
+        <div class="bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden">
+          <div class="px-8 pt-8 pb-6 text-center">
+            <div class="w-16 h-16 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg">
+              <svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"/>
+              </svg>
+            </div>
+            <h2 class="text-2xl font-bold text-gray-900">Create Account</h2>
+            <p class="text-gray-500 mt-2">Get started with your escrow dashboard</p>
+          </div>
+          
+          <form id="signup-form" class="px-8 pb-8 space-y-5">
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-2">Full Name</label>
+              <input type="text" id="signup-name" value="Jane Smith" class="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500">
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-2">Email Address</label>
+              <input type="email" id="signup-email" value="jane@example.com" class="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500">
+            </div>
+            <button type="button" onclick="startSignUp()" id="signup-btn" class="w-full py-3.5 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-semibold rounded-xl hover:from-blue-700 hover:to-indigo-700 shadow-lg shadow-blue-500/25">
+              Create Account
+            </button>
+            <div class="flex items-center justify-center gap-2 text-xs text-gray-400">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
+              </svg>
+              <span>Secured with passkey authentication</span>
+            </div>
+          </form>
+        </div>
+
+        <!-- Flow Explanation -->
+        <div class="space-y-6">
+          <div class="bg-white rounded-2xl p-6 border border-gray-100">
+            <h3 class="font-semibold text-gray-900 mb-4">How It Works</h3>
+            <div class="space-y-4">
+              <div class="flex gap-4">
+                <div class="w-8 h-8 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0">1</div>
+                <div>
+                  <p class="font-medium text-gray-900">Enter your info</p>
+                  <p class="text-sm text-gray-500">Name and email for your account</p>
+                </div>
+              </div>
+              <div class="flex gap-4">
+                <div class="w-8 h-8 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0">2</div>
+                <div>
+                  <p class="font-medium text-gray-900">Set up passkey</p>
+                  <p class="text-sm text-gray-500">Use Windows Hello, PIN, or scan with phone</p>
+                </div>
+              </div>
+              <div class="flex gap-4">
+                <div class="w-8 h-8 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0">3</div>
+                <div>
+                  <p class="font-medium text-gray-900">Account created</p>
+                  <p class="text-sm text-gray-500">Wallet + user record created automatically</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- What user DOESN'T see -->
+          <div class="bg-gradient-to-br from-slate-800 to-slate-900 rounded-2xl p-6 text-white">
+            <h3 class="font-semibold mb-4 flex items-center gap-2">
+              <svg class="w-5 h-5 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+              </svg>
+              What Users DON'T See
+            </h3>
+            <ul class="space-y-2 text-sm text-gray-300">
+              <li class="flex items-center gap-2">
+                <span class="text-red-400">✗</span>
+                12/24 word seed phrase
+              </li>
+              <li class="flex items-center gap-2">
+                <span class="text-red-400">✗</span>
+                "Connect Wallet" button
+              </li>
+              <li class="flex items-center gap-2">
+                <span class="text-red-400">✗</span>
+                Browser extension prompts
+              </li>
+              <li class="flex items-center gap-2">
+                <span class="text-red-400">✗</span>
+                Password fields
+              </li>
+              <li class="flex items-center gap-2">
+                <span class="text-red-400">✗</span>
+                Hex wallet addresses
+              </li>
+            </ul>
+          </div>
+
+          <!-- Code snippet -->
+          <div class="bg-slate-900 rounded-2xl p-6 font-mono text-sm overflow-x-auto">
+            <div class="text-gray-500 mb-2">// Backend receives:</div>
+            <pre class="text-gray-300">{
+  <span class="text-emerald-400">"walletAddress"</span>: <span class="text-amber-400">"0x1234..."</span>,
+  <span class="text-emerald-400">"displayName"</span>: <span class="text-amber-400">"Jane Smith"</span>,
+  <span class="text-emerald-400">"email"</span>: <span class="text-amber-400">"jane@example.com"</span>
+}</pre>
+            <div class="text-gray-500 mt-4 mb-2">// Database stores:</div>
+            <pre class="text-gray-300">{
+  <span class="text-emerald-400">"id"</span>: <span class="text-amber-400">"cuid_xxx"</span>,
+  <span class="text-emerald-400">"walletAddress"</span>: <span class="text-amber-400">"0x1234..."</span>,
+  <span class="text-emerald-400">"role"</span>: <span class="text-amber-400">"ESCROW_OFFICER"</span>
+  <span class="text-gray-500">// No password field!</span>
+}</pre>
+          </div>
+        </div>
+      </div>
+
+      <!-- Passkey Modal (hidden initially) -->
+      <div id="passkey-modal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-sm mx-4 overflow-hidden">
+          <div class="bg-blue-600 p-4 text-white text-center">
+            <img src="https://www.coinbase.com/img/favicon/favicon-256.png" class="w-10 h-10 mx-auto mb-2 rounded-lg">
+            <p class="font-semibold">Coinbase</p>
+          </div>
+          <div class="p-6">
+            <h3 class="text-lg font-semibold text-gray-900 text-center mb-6">Create your account</h3>
+            <div class="space-y-3">
+              <button onclick="selectPasskey()" class="w-full p-4 border-2 border-gray-200 rounded-xl hover:border-blue-500 hover:bg-blue-50 transition-all flex items-center gap-4">
+                <div class="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
+                  <svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"/>
+                  </svg>
+                </div>
+                <div class="text-left">
+                  <p class="font-medium text-gray-900">Use Passkey</p>
+                  <p class="text-xs text-gray-500">Windows Hello / PIN</p>
+                </div>
+              </button>
+              <button onclick="selectQR()" class="w-full p-4 border-2 border-gray-200 rounded-xl hover:border-blue-500 hover:bg-blue-50 transition-all flex items-center gap-4">
+                <div class="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center">
+                  <svg class="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z"/>
+                  </svg>
+                </div>
+                <div class="text-left">
+                  <p class="font-medium text-gray-900">Scan with Phone</p>
+                  <p class="text-xs text-gray-500">Use your mobile device</p>
+                </div>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Windows Hello Modal -->
+      <div id="windows-hello-modal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-sm mx-4 overflow-hidden">
+          <div class="bg-slate-800 p-6 text-center">
+            <svg class="w-16 h-16 text-white mx-auto mb-3" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M3 5.5A2.5 2.5 0 015.5 3h13A2.5 2.5 0 0121 5.5v13a2.5 2.5 0 01-2.5 2.5h-13A2.5 2.5 0 013 18.5v-13zM5.5 5a.5.5 0 00-.5.5v13a.5.5 0 00.5.5h13a.5.5 0 00.5-.5v-13a.5.5 0 00-.5-.5h-13z"/>
+            </svg>
+            <h3 class="text-white font-semibold">Windows Security</h3>
+          </div>
+          <div class="p-6 text-center">
+            <p class="text-gray-700 mb-6">Enter your PIN to sign in</p>
+            <input type="password" id="pin-input" class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl text-center text-2xl tracking-widest focus:outline-none focus:border-blue-500" maxlength="6" placeholder="••••••">
+            <button onclick="submitPIN()" class="w-full mt-4 py-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 font-medium">Sign in</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Success Modal -->
+      <div id="success-modal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-sm mx-4 p-8 text-center">
+          <div class="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
+            <svg class="w-10 h-10 text-green-600 check-appear" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+            </svg>
+          </div>
+          <h3 class="text-xl font-bold text-gray-900 mb-2">Account Created!</h3>
+          <p class="text-gray-500">Welcome aboard, <span id="welcome-name">Jane</span>!</p>
+          <p class="text-sm text-gray-400 mt-4">Redirecting to dashboard...</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════════════════════════
+         TAB: Login Flow
+         ═══════════════════════════════════════════════════════════════════════ -->
+    <div id="content-login" class="tab-content hidden">
+      <div class="grid md:grid-cols-2 gap-8">
+        <!-- Login Card -->
+        <div class="bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden">
+          <div class="px-8 pt-8 pb-6 text-center">
+            <div class="w-16 h-16 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg">
+              <svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1"/>
+              </svg>
+            </div>
+            <h2 class="text-2xl font-bold text-gray-900">Welcome Back</h2>
+            <p class="text-gray-500 mt-2">Sign in to your escrow dashboard</p>
+          </div>
+          
+          <div class="px-8 pb-8 space-y-5">
+            <button onclick="startLogin()" id="login-btn" class="w-full py-4 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-semibold rounded-xl hover:from-blue-700 hover:to-indigo-700 shadow-lg shadow-blue-500/25 flex items-center justify-center gap-3">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1"/>
+              </svg>
+              Sign In
+            </button>
+            
+            <div class="text-center">
+              <span class="text-gray-500 text-sm">Don't have an account? </span>
+              <a href="#" onclick="showTab('signup')" class="text-blue-600 text-sm font-medium hover:text-blue-700">Sign Up</a>
+            </div>
+          </div>
+        </div>
+
+        <!-- Flow Explanation -->
+        <div class="space-y-6">
+          <div class="bg-white rounded-2xl p-6 border border-gray-100">
+            <h3 class="font-semibold text-gray-900 mb-4">Login Flow</h3>
+            <div class="space-y-4">
+              <div class="flex gap-4">
+                <div class="w-8 h-8 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0">1</div>
+                <div>
+                  <p class="font-medium text-gray-900">Click Sign In</p>
+                  <p class="text-sm text-gray-500">Triggers Coinbase Smart Wallet</p>
+                </div>
+              </div>
+              <div class="flex gap-4">
+                <div class="w-8 h-8 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0">2</div>
+                <div>
+                  <p class="font-medium text-gray-900">Authenticate</p>
+                  <p class="text-sm text-gray-500">Passkey prompt (PIN or biometric)</p>
+                </div>
+              </div>
+              <div class="flex gap-4">
+                <div class="w-8 h-8 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0">3</div>
+                <div>
+                  <p class="font-medium text-gray-900">Verify User</p>
+                  <p class="text-sm text-gray-500">Check if wallet exists in database</p>
+                </div>
+              </div>
+              <div class="flex gap-4">
+                <div class="w-8 h-8 bg-green-100 text-green-600 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0">✓</div>
+                <div>
+                  <p class="font-medium text-gray-900">Access Granted</p>
+                  <p class="text-sm text-gray-500">Redirect to dashboard</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Session State -->
+          <div class="bg-slate-900 rounded-2xl p-6 font-mono text-sm">
+            <div class="text-gray-500 mb-2">// useAuth() hook:</div>
+            <pre class="text-gray-300">const { 
+  <span class="text-emerald-400">user</span>,           <span class="text-gray-500">// User object or null</span>
+  <span class="text-emerald-400">isAuthenticated</span>, <span class="text-gray-500">// true if logged in</span>
+  <span class="text-emerald-400">isLoading</span>,       <span class="text-gray-500">// true during verify</span>
+  <span class="text-emerald-400">signOut</span>          <span class="text-gray-500">// Disconnect wallet</span>
+} = useAuth();</pre>
+          </div>
+
+          <!-- Not Registered State -->
+          <div class="bg-amber-50 border border-amber-200 rounded-2xl p-6">
+            <div class="flex items-center gap-2 text-amber-700 mb-3">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+              </svg>
+              <span class="font-semibold">If Not Registered</span>
+            </div>
+            <p class="text-sm text-amber-600">
+              If the wallet address isn't in our database, we show a friendly message prompting the user to sign up instead of a cryptic error.
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════════════════════════
+         TAB: Add Payee (Tokenization)
+         ═══════════════════════════════════════════════════════════════════════ -->
+    <div id="content-payee" class="tab-content hidden">
+      <div class="grid md:grid-cols-2 gap-8">
+        <!-- Payee Form -->
+        <div class="bg-white rounded-2xl shadow-xl border border-gray-100 p-6">
+          <h2 class="text-xl font-bold text-gray-900 mb-6 flex items-center gap-2">
+            <svg class="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"/>
+            </svg>
+            Add Payee
+          </h2>
+
+          <form id="payee-form" class="space-y-5">
+            <!-- Payee Info -->
+            <div class="grid grid-cols-2 gap-4">
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">First Name</label>
+                <input type="text" value="John" class="w-full px-3 py-2 border border-gray-200 rounded-lg">
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Last Name</label>
+                <input type="text" value="Seller" class="w-full px-3 py-2 border border-gray-200 rounded-lg">
+              </div>
+            </div>
+
+            <!-- Bank Details (SENSITIVE) -->
+            <div class="border-2 border-dashed border-amber-300 rounded-xl p-4 bg-amber-50/50">
+              <div class="flex items-center gap-2 mb-3">
+                <svg class="w-5 h-5 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+                </svg>
+                <span class="text-sm font-semibold text-amber-700">Sensitive Data - Will Be Tokenized</span>
+              </div>
+              
+              <div class="space-y-3">
+                <div>
+                  <label class="block text-sm font-medium text-gray-700 mb-1">Bank Name</label>
+                  <input type="text" id="bank-name" value="Chase Bank" class="w-full px-3 py-2 border border-gray-200 rounded-lg">
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                  <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Routing Number</label>
+                    <input type="text" id="routing" value="021000021" maxlength="9" class="w-full px-3 py-2 border border-gray-200 rounded-lg font-mono">
+                  </div>
+                  <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Account Number</label>
+                    <input type="text" id="account" value="123456789012" maxlength="17" class="w-full px-3 py-2 border border-gray-200 rounded-lg font-mono">
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <button type="button" onclick="tokenizeBankInfo()" id="add-payee-btn" class="w-full py-3 bg-blue-600 text-white font-semibold rounded-xl hover:bg-blue-700 flex items-center justify-center gap-2">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+              </svg>
+              Add Payee
+            </button>
+          </form>
+        </div>
+
+        <!-- Tokenization Visualization -->
+        <div class="space-y-6">
+          <!-- What Happens -->
+          <div class="bg-white rounded-2xl p-6 border border-gray-100">
+            <h3 class="font-semibold text-gray-900 mb-4">What Happens When You Click "Add Payee"</h3>
+            <div id="tokenization-steps" class="space-y-4">
+              <div class="flex gap-4 opacity-40" id="step-1">
+                <div class="w-8 h-8 bg-gray-200 text-gray-500 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0">1</div>
+                <div>
+                  <p class="font-medium text-gray-700">Collect bank details</p>
+                  <p class="text-sm text-gray-500">Form data gathered (in browser memory)</p>
+                </div>
+              </div>
+              <div class="flex gap-4 opacity-40" id="step-2">
+                <div class="w-8 h-8 bg-gray-200 text-gray-500 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0">2</div>
+                <div>
+                  <p class="font-medium text-gray-700">Send to Bridge.xyz</p>
+                  <p class="text-sm text-gray-500">Encrypted over HTTPS to their secure vault</p>
+                </div>
+              </div>
+              <div class="flex gap-4 opacity-40" id="step-3">
+                <div class="w-8 h-8 bg-gray-200 text-gray-500 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0">3</div>
+                <div>
+                  <p class="font-medium text-gray-700">Receive token</p>
+                  <p class="text-sm text-gray-500">Bridge returns: <code class="bg-gray-100 px-1 rounded">ext_acct_xxx</code></p>
+                </div>
+              </div>
+              <div class="flex gap-4 opacity-40" id="step-4">
+                <div class="w-8 h-8 bg-gray-200 text-gray-500 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0">4</div>
+                <div>
+                  <p class="font-medium text-gray-700">Store ONLY the token</p>
+                  <p class="text-sm text-gray-500">Bank numbers are DISCARDED immediately</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Database Visualization -->
+          <div class="bg-slate-900 rounded-2xl p-6">
+            <h3 class="text-white font-semibold mb-4">What Gets Stored in Database</h3>
+            <div class="font-mono text-sm">
+              <div class="text-gray-500 mb-2">// Payee record:</div>
+              <pre id="db-record" class="text-gray-300">{
+  <span class="text-emerald-400">"firstName"</span>: <span class="text-amber-400">"John"</span>,
+  <span class="text-emerald-400">"lastName"</span>: <span class="text-amber-400">"Seller"</span>,
+  <span class="text-emerald-400">"bankName"</span>: <span class="text-amber-400">"Chase Bank"</span>,
+  <span class="text-emerald-400">"accountLast4"</span>: <span class="text-amber-400">"9012"</span>,
+  <span class="text-emerald-400">"bridgeBeneficiaryId"</span>: <span class="text-amber-400">"ext_acct_..."</span>
+  
+  <span class="text-red-400">// ❌ routingNumber - NOT STORED</span>
+  <span class="text-red-400">// ❌ accountNumber - NOT STORED</span>
+}</pre>
+            </div>
+          </div>
+
+          <!-- Security Benefit -->
+          <div class="bg-green-50 border border-green-200 rounded-2xl p-6">
+            <div class="flex items-center gap-2 text-green-700 mb-3">
+              <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
+              </svg>
+              <span class="font-semibold">Why This Matters</span>
+            </div>
+            <p class="text-sm text-green-700">
+              <strong>If our database is breached</strong>, attackers get tokens like <code class="bg-green-100 px-1 rounded">ext_acct_abc123</code> which are <strong>completely useless</strong> without our Bridge.xyz API credentials. They cannot initiate wire transfers or retrieve the actual bank numbers.
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════════════════════════
+         TAB: Security Architecture
+         ═══════════════════════════════════════════════════════════════════════ -->
+    <div id="content-security" class="tab-content hidden">
+      <div class="space-y-8">
+        <!-- Header -->
+        <div class="text-center">
+          <h1 class="text-3xl font-bold text-gray-900 mb-4">Security Architecture</h1>
+          <p class="text-gray-600 max-w-2xl mx-auto">
+            Zero PII storage, passkey authentication, and tokenized banking
+          </p>
+        </div>
+
+        <!-- What We Store vs Don't Store -->
+        <div class="grid md:grid-cols-2 gap-6">
+          <div class="bg-red-50 rounded-2xl p-6 border border-red-200">
+            <h3 class="text-lg font-bold text-red-700 mb-4 flex items-center gap-2">
+              <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+              </svg>
+              NEVER Stored in Our Database
+            </h3>
+            <ul class="space-y-3">
+              <li class="flex items-center gap-3">
+                <span class="w-6 h-6 bg-red-200 text-red-700 rounded flex items-center justify-center text-xs">✗</span>
+                <div>
+                  <span class="font-medium text-gray-900">Routing Numbers</span>
+                  <p class="text-sm text-gray-600">Could enable fraudulent wire transfers</p>
+                </div>
+              </li>
+              <li class="flex items-center gap-3">
+                <span class="w-6 h-6 bg-red-200 text-red-700 rounded flex items-center justify-center text-xs">✗</span>
+                <div>
+                  <span class="font-medium text-gray-900">Account Numbers</span>
+                  <p class="text-sm text-gray-600">Full account numbers never touch our DB</p>
+                </div>
+              </li>
+              <li class="flex items-center gap-3">
+                <span class="w-6 h-6 bg-red-200 text-red-700 rounded flex items-center justify-center text-xs">✗</span>
+                <div>
+                  <span class="font-medium text-gray-900">Passwords</span>
+                  <p class="text-sm text-gray-600">Passkey auth only - no password field exists</p>
+                </div>
+              </li>
+              <li class="flex items-center gap-3">
+                <span class="w-6 h-6 bg-red-200 text-red-700 rounded flex items-center justify-center text-xs">✗</span>
+                <div>
+                  <span class="font-medium text-gray-900">Full SSN</span>
+                  <p class="text-sm text-gray-600">Identity theft risk</p>
+                </div>
+              </li>
+            </ul>
+          </div>
+
+          <div class="bg-green-50 rounded-2xl p-6 border border-green-200">
+            <h3 class="text-lg font-bold text-green-700 mb-4 flex items-center gap-2">
+              <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+              </svg>
+              Safe to Store
+            </h3>
+            <ul class="space-y-3">
+              <li class="flex items-center gap-3">
+                <span class="w-6 h-6 bg-green-200 text-green-700 rounded flex items-center justify-center text-xs">✓</span>
+                <div>
+                  <span class="font-medium text-gray-900">Bridge Beneficiary ID</span>
+                  <p class="text-sm text-gray-600"><code class="bg-green-100 px-1 rounded">ext_acct_xxx</code> - useless without API key</p>
+                </div>
+              </li>
+              <li class="flex items-center gap-3">
+                <span class="w-6 h-6 bg-green-200 text-green-700 rounded flex items-center justify-center text-xs">✓</span>
+                <div>
+                  <span class="font-medium text-gray-900">Account Last 4</span>
+                  <p class="text-sm text-gray-600">For display only, insufficient for fraud</p>
+                </div>
+              </li>
+              <li class="flex items-center gap-3">
+                <span class="w-6 h-6 bg-green-200 text-green-700 rounded flex items-center justify-center text-xs">✓</span>
+                <div>
+                  <span class="font-medium text-gray-900">Bank Name</span>
+                  <p class="text-sm text-gray-600">Public information (can Google any bank)</p>
+                </div>
+              </li>
+              <li class="flex items-center gap-3">
+                <span class="w-6 h-6 bg-green-200 text-green-700 rounded flex items-center justify-center text-xs">✓</span>
+                <div>
+                  <span class="font-medium text-gray-900">Wallet Address</span>
+                  <p class="text-sm text-gray-600">Public blockchain data</p>
+                </div>
+              </li>
+            </ul>
+          </div>
+        </div>
+
+        <!-- Prisma Schema -->
+        <div class="bg-slate-900 rounded-2xl p-6 overflow-x-auto">
+          <h3 class="text-white font-semibold mb-4">Prisma Schema (Payee Model)</h3>
+          <pre class="font-mono text-sm text-gray-300">
+<span class="text-purple-400">model</span> <span class="text-amber-400">Payee</span> {
+  id              String   <span class="text-gray-500">@id @default(cuid())</span>
+  
+  <span class="text-green-400">// ✅ SAFE: Non-sensitive identifiers</span>
+  firstName       String
+  lastName        String
+  email           String?
+  
+  <span class="text-green-400">// ✅ SAFE: Tokenized reference (useless without Bridge API)</span>
+  bridgeBeneficiaryId  String
+  
+  <span class="text-green-400">// ✅ SAFE: Public info / display only</span>
+  bankName        String?
+  accountLast4    String?
+  
+  <span class="text-red-400">// ❌ NOT PRESENT: routingNumber</span>
+  <span class="text-red-400">// ❌ NOT PRESENT: accountNumber</span>
+  <span class="text-red-400">// ❌ NOT PRESENT: fullSSN</span>
+}</pre>
+        </div>
+
+        <!-- Security Layers -->
+        <div class="bg-white rounded-2xl p-8 border border-gray-100">
+          <h3 class="text-xl font-bold text-gray-900 mb-6">Security Layers</h3>
+          <div class="grid md:grid-cols-3 gap-6">
+            <div class="text-center">
+              <div class="w-16 h-16 bg-blue-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                <svg class="w-8 h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"/>
+                </svg>
+              </div>
+              <h4 class="font-semibold text-gray-900 mb-2">Passkey Auth</h4>
+              <p class="text-sm text-gray-600">FIDO2/WebAuthn. Keys in device secure enclave. Phishing resistant.</p>
+            </div>
+            <div class="text-center">
+              <div class="w-16 h-16 bg-green-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                <svg class="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
+                </svg>
+              </div>
+              <h4 class="font-semibold text-gray-900 mb-2">Tokenized Banking</h4>
+              <p class="text-sm text-gray-600">Bridge.xyz SOC 2 Type II. PCI compliant vault for bank data.</p>
+            </div>
+            <div class="text-center">
+              <div class="w-16 h-16 bg-purple-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                <svg class="w-8 h-8 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/>
+                </svg>
+              </div>
+              <h4 class="font-semibold text-gray-900 mb-2">Multisig Control</h4>
+              <p class="text-sm text-gray-600">Safe M-of-N signatures required for all fund movements.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </main>
+
+  <script>
+    // ═══════════════════════════════════════════════════════════════════════════
+    // TAB NAVIGATION
+    // ═══════════════════════════════════════════════════════════════════════════
+    
+    function showTab(tabName) {
+      // Hide all content
+      document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+      // Deactivate all buttons
+      document.querySelectorAll('.tab-btn').forEach(el => {
+        el.classList.remove('text-blue-600', 'bg-blue-50');
+        el.classList.add('text-gray-600');
+      });
+      
+      // Show selected content
+      document.getElementById('content-' + tabName).classList.remove('hidden');
+      // Activate selected button
+      const btn = document.getElementById('tab-' + tabName);
+      btn.classList.add('text-blue-600', 'bg-blue-50');
+      btn.classList.remove('text-gray-600');
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // SIGN UP FLOW
+    // ═══════════════════════════════════════════════════════════════════════════
+    
+    function startSignUp() {
+      const name = document.getElementById('signup-name').value;
+      document.getElementById('signup-btn').innerHTML = `
+        <svg class="w-5 h-5 animate-spin inline mr-2" fill="none" viewBox="0 0 24 24">
+          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+        </svg>
+        Creating Account...
+      `;
+      
+      setTimeout(() => {
+        document.getElementById('passkey-modal').classList.remove('hidden');
+      }, 500);
+    }
+    
+    function selectPasskey() {
+      document.getElementById('passkey-modal').classList.add('hidden');
+      document.getElementById('windows-hello-modal').classList.remove('hidden');
+      document.getElementById('pin-input').focus();
+    }
+    
+    function selectQR() {
+      alert('QR code scanning would appear here for mobile authentication');
+    }
+    
+    function submitPIN() {
+      document.getElementById('windows-hello-modal').classList.add('hidden');
+      
+      // Show success
+      setTimeout(() => {
+        const name = document.getElementById('signup-name').value.split(' ')[0];
+        document.getElementById('welcome-name').textContent = name;
+        document.getElementById('success-modal').classList.remove('hidden');
+        
+        // Reset form
+        document.getElementById('signup-btn').textContent = 'Create Account';
+      }, 300);
+      
+      // Auto close success modal
+      setTimeout(() => {
+        document.getElementById('success-modal').classList.add('hidden');
+      }, 3000);
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // LOGIN FLOW
+    // ═══════════════════════════════════════════════════════════════════════════
+    
+    function startLogin() {
+      const btn = document.getElementById('login-btn');
+      btn.innerHTML = `
+        <svg class="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
+          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+        </svg>
+        <span>Signing in...</span>
+      `;
+      
+      setTimeout(() => {
+        document.getElementById('passkey-modal').classList.remove('hidden');
+      }, 500);
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // TOKENIZATION DEMO
+    // ═══════════════════════════════════════════════════════════════════════════
+    
+    function tokenizeBankInfo() {
+      const btn = document.getElementById('add-payee-btn');
+      btn.innerHTML = `
+        <svg class="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
+          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+        </svg>
+        <span>Processing...</span>
+      `;
+      btn.disabled = true;
+      
+      // Animate steps
+      const steps = ['step-1', 'step-2', 'step-3', 'step-4'];
+      steps.forEach((step, i) => {
+        setTimeout(() => {
+          const el = document.getElementById(step);
+          el.classList.remove('opacity-40');
+          el.querySelector('div:first-child').classList.remove('bg-gray-200', 'text-gray-500');
+          el.querySelector('div:first-child').classList.add('bg-blue-600', 'text-white');
+        }, i * 800);
+      });
+      
+      // Show final result
+      setTimeout(() => {
+        // "Shred" the bank numbers
+        document.getElementById('routing').classList.add('redacted');
+        document.getElementById('account').classList.add('redacted');
+        
+        btn.innerHTML = `
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+          </svg>
+          <span>Payee Added</span>
+        `;
+        btn.classList.remove('bg-blue-600', 'hover:bg-blue-700');
+        btn.classList.add('bg-green-600');
+        
+        // Update DB record display
+        document.getElementById('db-record').innerHTML = `{
+  <span class="text-emerald-400">"firstName"</span>: <span class="text-amber-400">"John"</span>,
+  <span class="text-emerald-400">"lastName"</span>: <span class="text-amber-400">"Seller"</span>,
+  <span class="text-emerald-400">"bankName"</span>: <span class="text-amber-400">"Chase Bank"</span>,
+  <span class="text-emerald-400">"accountLast4"</span>: <span class="text-amber-400">"9012"</span>,
+  <span class="text-emerald-400">"bridgeBeneficiaryId"</span>: <span class="text-amber-400">"ext_acct_7f8k2m"</span>
+  
+  <span class="text-green-400">// ✓ Routing/Account numbers DISCARDED</span>
+  <span class="text-green-400">// ✓ Only token stored in database</span>
+}`;
+      }, 3500);
+      
+      // Reset after delay
+      setTimeout(() => {
+        btn.innerHTML = `
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+          </svg>
+          Add Payee
+        `;
+        btn.disabled = false;
+        btn.classList.remove('bg-green-600');
+        btn.classList.add('bg-blue-600', 'hover:bg-blue-700');
+        
+        document.getElementById('routing').classList.remove('redacted');
+        document.getElementById('account').classList.remove('redacted');
+        
+        steps.forEach(step => {
+          const el = document.getElementById(step);
+          el.classList.add('opacity-40');
+          el.querySelector('div:first-child').classList.add('bg-gray-200', 'text-gray-500');
+          el.querySelector('div:first-child').classList.remove('bg-blue-600', 'text-white');
+        });
+      }, 7000);
+    }
+
+    // Close modals on click outside
+    document.querySelectorAll('#passkey-modal, #windows-hello-modal, #success-modal').forEach(modal => {
+      modal.addEventListener('click', (e) => {
+        if (e.target === modal) {
+          modal.classList.add('hidden');
+          document.getElementById('signup-btn').textContent = 'Create Account';
+          document.getElementById('login-btn').innerHTML = `
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1"/>
+            </svg>
+            Sign In
+          `;
+        }
+      });
+    });
+  </script>
+
+</body>
+</html>

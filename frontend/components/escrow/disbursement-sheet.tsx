@@ -1,0 +1,477 @@
+'use client';
+
+import { useState } from 'react';
+import {
+  User,
+  Briefcase,
+  Wrench,
+  Building,
+  CreditCard,
+  Landmark,
+  Mail,
+  Check,
+  Clock,
+  AlertCircle,
+  Trash2,
+  Edit,
+  ChevronDown,
+  ChevronUp,
+  TrendingUp,
+  Shield,
+  Home,
+} from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from '@/components/ui/collapsible';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
+import { cn } from '@/lib/utils';
+import { AddPayeeForm, PaymentMethod, PayeeType } from './AddPayeeForm';
+
+// ============================================================
+// Types
+// ============================================================
+
+interface Payee {
+  id: string;
+  name: string;
+  type: PayeeType;
+  email: string;
+  paymentMethod: PaymentMethod;
+  amount?: number;
+  basisPoints?: number;
+  usePercentage: boolean;
+  status: 'PENDING' | 'READY' | 'PROCESSING' | 'PAID' | 'FAILED' | 'QUEUED' | 'COMPLETED';
+  paymentDetails: Record<string, unknown>;
+  paidAt?: Date;
+  trackingNumber?: string;
+}
+
+interface DisbursementSheetProps {
+  escrowId: string;
+  purchasePrice: number;
+  currentBalance: number;
+  accruedYield: number;
+  buyerName?: string;
+  payees: Payee[];
+  onAddPayee: (payee: unknown) => Promise<void>;
+  onRemovePayee: (payeeId: string) => Promise<void>;
+  onUpdatePayee: (payeeId: string, data: unknown) => Promise<void>;
+  canEdit: boolean;
+}
+
+// ============================================================
+// Icons & Labels
+// ============================================================
+
+const payeeTypeIcons: Record<string, React.ReactNode> = {
+  SELLER: <User className="h-4 w-4" />,
+  LISTING_AGENT: <Briefcase className="h-4 w-4" />,
+  BUYER_AGENT: <Briefcase className="h-4 w-4" />,
+  TITLE_INSURANCE: <Shield className="h-4 w-4" />,
+  ESCROW_COMPANY: <Building className="h-4 w-4" />,
+  MORTGAGE_PAYOFF: <Home className="h-4 w-4" />,
+  HOA: <Building className="h-4 w-4" />,
+  INSPECTOR: <Wrench className="h-4 w-4" />,
+  CONTRACTOR: <Wrench className="h-4 w-4" />,
+  OTHER: <Building className="h-4 w-4" />,
+};
+
+const paymentMethodIcons: Record<string, React.ReactNode> = {
+  WIRE: <Landmark className="h-4 w-4" />,
+  ACH: <CreditCard className="h-4 w-4" />,
+  CHECK: <Mail className="h-4 w-4" />,
+  PHYSICAL_CHECK: <Mail className="h-4 w-4" />,
+  INTERNATIONAL: <Landmark className="h-4 w-4" />,
+};
+
+const paymentMethodLabels: Record<string, string> = {
+  WIRE: 'Wire Transfer',
+  ACH: 'ACH Transfer',
+  CHECK: 'Physical Check',
+  PHYSICAL_CHECK: 'Physical Check',
+  INTERNATIONAL: 'International Wire',
+};
+
+const statusConfig: Record<string, { label: string; color: string; icon: React.ReactNode }> = {
+  PENDING: { label: 'Pending', color: 'bg-slate-100 text-slate-600', icon: <Clock className="h-3 w-3" /> },
+  READY: { label: 'Ready', color: 'bg-blue-100 text-blue-600', icon: <Check className="h-3 w-3" /> },
+  QUEUED: { label: 'Queued', color: 'bg-blue-100 text-blue-600', icon: <Clock className="h-3 w-3" /> },
+  PROCESSING: { label: 'Processing', color: 'bg-amber-100 text-amber-600', icon: <Clock className="h-3 w-3 animate-spin" /> },
+  PAID: { label: 'Paid', color: 'bg-emerald-100 text-emerald-600', icon: <Check className="h-3 w-3" /> },
+  COMPLETED: { label: 'Completed', color: 'bg-emerald-100 text-emerald-600', icon: <Check className="h-3 w-3" /> },
+  FAILED: { label: 'Failed', color: 'bg-red-100 text-red-600', icon: <AlertCircle className="h-3 w-3" /> },
+};
+
+// ============================================================
+// Main Component
+// ============================================================
+
+export function DisbursementSheet({
+  escrowId,
+  purchasePrice,
+  currentBalance,
+  accruedYield,
+  buyerName,
+  payees,
+  onAddPayee,
+  onRemovePayee,
+  onUpdatePayee,
+  canEdit,
+}: DisbursementSheetProps) {
+  const [isAddingPayee, setIsAddingPayee] = useState(false);
+  const [expandedPayee, setExpandedPayee] = useState<string | null>(null);
+
+  // Calculate totals
+  const totalDisbursements = payees.reduce((sum, payee) => {
+    const amount = payee.usePercentage && payee.basisPoints
+      ? (purchasePrice * payee.basisPoints) / 10000
+      : payee.amount || 0;
+    return sum + amount;
+  }, 0);
+
+  const remainingBalance = currentBalance - totalDisbursements;
+  const buyerRebate = accruedYield;
+
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD',
+      minimumFractionDigits: 2,
+    }).format(amount);
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Summary Card */}
+      <Card className="bg-gradient-to-br from-slate-900 to-slate-800 text-white">
+        <CardHeader className="pb-2">
+          <CardTitle className="text-lg font-medium text-slate-200">
+            Disbursement Summary
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div>
+              <p className="text-xs text-slate-400 uppercase tracking-wide">Purchase Price</p>
+              <p className="text-xl font-semibold">{formatCurrency(purchasePrice)}</p>
+            </div>
+            <div>
+              <p className="text-xs text-slate-400 uppercase tracking-wide">Current Balance</p>
+              <p className="text-xl font-semibold text-emerald-400">
+                {formatCurrency(currentBalance)}
+              </p>
+            </div>
+            <div>
+              <p className="text-xs text-slate-400 uppercase tracking-wide">Accrued Yield</p>
+              <p className="text-xl font-semibold text-amber-400">
+                +{formatCurrency(accruedYield)}
+              </p>
+            </div>
+            <div>
+              <p className="text-xs text-slate-400 uppercase tracking-wide">To Payees</p>
+              <p className="text-xl font-semibold text-blue-400">
+                {formatCurrency(totalDisbursements)}
+              </p>
+            </div>
+          </div>
+
+          {/* Breakdown bar */}
+          <div className="mt-6">
+            <div className="flex h-3 rounded-full overflow-hidden bg-slate-700">
+              <div
+                className="bg-blue-500 transition-all"
+                style={{ width: `${Math.min((totalDisbursements / (currentBalance || 1)) * 100, 100)}%` }}
+              />
+              <div
+                className="bg-amber-500 transition-all"
+                style={{ width: `${Math.min((accruedYield / (currentBalance || 1)) * 100, 100)}%` }}
+              />
+              <div className="bg-emerald-500 flex-1" />
+            </div>
+            <div className="flex justify-between mt-2 text-xs text-slate-400">
+              <span>Payees: {formatCurrency(totalDisbursements)}</span>
+              <span>Buyer Rebate: {formatCurrency(buyerRebate)}</span>
+              <span>Remaining: {formatCurrency(Math.max(remainingBalance, 0))}</span>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Payees List */}
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <div>
+            <CardTitle className="text-lg">Payees ({payees.length})</CardTitle>
+            <CardDescription>
+              Configure disbursement recipients
+            </CardDescription>
+          </div>
+          {canEdit && !isAddingPayee && (
+            <Button
+              onClick={() => setIsAddingPayee(true)}
+              className="bg-emerald-600 hover:bg-emerald-700"
+            >
+              Add Payee
+            </Button>
+          )}
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {/* Add Payee Form */}
+          {isAddingPayee && (
+            <AddPayeeForm
+              escrowId={escrowId}
+              purchasePrice={purchasePrice}
+              onPayeeAdded={async (payee) => {
+                await onAddPayee(payee);
+                setIsAddingPayee(false);
+              }}
+              onCancel={() => setIsAddingPayee(false)}
+            />
+          )}
+
+          {/* Payee Cards */}
+          {payees.length === 0 && !isAddingPayee ? (
+            <div className="text-center py-12 bg-slate-50 rounded-lg border-2 border-dashed">
+              <Building className="h-12 w-12 mx-auto text-slate-300 mb-3" />
+              <p className="text-slate-600 font-medium">No payees added yet</p>
+              <p className="text-sm text-slate-400 mt-1">
+                Add sellers, agents, and other parties to configure disbursements
+              </p>
+            </div>
+          ) : (
+            payees.map((payee) => (
+              <PayeeCard
+                key={payee.id}
+                payee={payee}
+                purchasePrice={purchasePrice}
+                isExpanded={expandedPayee === payee.id}
+                onToggle={() => setExpandedPayee(
+                  expandedPayee === payee.id ? null : payee.id
+                )}
+                onRemove={() => onRemovePayee(payee.id)}
+                canEdit={canEdit}
+                formatCurrency={formatCurrency}
+              />
+            ))
+          )}
+
+          {/* Buyer Yield Rebate */}
+          {buyerName && accruedYield > 0 && (
+            <div className="mt-4 p-4 bg-amber-50 rounded-lg border border-amber-200">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-amber-100 rounded-lg">
+                    <TrendingUp className="h-5 w-5 text-amber-600" />
+                  </div>
+                  <div>
+                    <p className="font-medium text-amber-900">Buyer Yield Rebate</p>
+                    <p className="text-sm text-amber-600">
+                      {buyerName}
+                    </p>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <p className="text-lg font-semibold text-amber-900">
+                    +{formatCurrency(accruedYield)}
+                  </p>
+                  <p className="text-xs text-amber-600">Treasury yield earned</p>
+                </div>
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+// ============================================================
+// Payee Card Component
+// ============================================================
+
+interface PayeeCardProps {
+  payee: Payee;
+  purchasePrice: number;
+  isExpanded: boolean;
+  onToggle: () => void;
+  onRemove: () => void;
+  canEdit: boolean;
+  formatCurrency: (amount: number) => string;
+}
+
+function PayeeCard({
+  payee,
+  purchasePrice,
+  isExpanded,
+  onToggle,
+  onRemove,
+  canEdit,
+  formatCurrency,
+}: PayeeCardProps) {
+  const amount = payee.usePercentage && payee.basisPoints
+    ? (purchasePrice * payee.basisPoints) / 10000
+    : payee.amount || 0;
+
+  const status = statusConfig[payee.status] || statusConfig.PENDING;
+  const TypeIcon = payeeTypeIcons[payee.type] || payeeTypeIcons.OTHER;
+  const MethodIcon = paymentMethodIcons[payee.paymentMethod] || paymentMethodIcons.WIRE;
+
+  return (
+    <Collapsible open={isExpanded} onOpenChange={onToggle}>
+      <div className={cn(
+        'border rounded-lg transition-all',
+        isExpanded ? 'border-slate-300 shadow-sm' : 'border-slate-200',
+        (payee.status === 'PAID' || payee.status === 'COMPLETED') && 'bg-emerald-50/50',
+        payee.status === 'FAILED' && 'bg-red-50/50',
+      )}>
+        {/* Main Row */}
+        <div className="flex items-center justify-between p-4">
+          <div className="flex items-center gap-4">
+            {/* Type Icon */}
+            <div className={cn(
+              'p-2 rounded-lg',
+              (payee.status === 'PAID' || payee.status === 'COMPLETED') ? 'bg-emerald-100' : 'bg-slate-100'
+            )}>
+              {TypeIcon}
+            </div>
+
+            {/* Info */}
+            <div>
+              <div className="flex items-center gap-2">
+                <p className="font-medium">{payee.name}</p>
+                <Badge variant="outline" className={cn('text-xs', status.color)}>
+                  {status.icon}
+                  <span className="ml-1">{status.label}</span>
+                </Badge>
+              </div>
+              <div className="flex items-center gap-2 mt-1 text-sm text-slate-500">
+                {MethodIcon}
+                <span>{paymentMethodLabels[payee.paymentMethod] || payee.paymentMethod}</span>
+                {payee.usePercentage && payee.basisPoints && (
+                  <span className="text-slate-400">
+                    ({(payee.basisPoints / 100).toFixed(2)}%)
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Amount & Actions */}
+          <div className="flex items-center gap-4">
+            <div className="text-right">
+              <p className="text-lg font-semibold">{formatCurrency(amount)}</p>
+              {payee.paidAt && (
+                <p className="text-xs text-emerald-600">
+                  Paid {new Date(payee.paidAt).toLocaleDateString()}
+                </p>
+              )}
+            </div>
+
+            <CollapsibleTrigger asChild>
+              <Button variant="ghost" size="sm">
+                {isExpanded ? (
+                  <ChevronUp className="h-4 w-4" />
+                ) : (
+                  <ChevronDown className="h-4 w-4" />
+                )}
+              </Button>
+            </CollapsibleTrigger>
+          </div>
+        </div>
+
+        {/* Expanded Details */}
+        <CollapsibleContent>
+          <div className="px-4 pb-4 pt-0 border-t">
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-4 pt-4">
+              {payee.email && (
+                <div>
+                  <p className="text-xs text-slate-500 uppercase">Email</p>
+                  <p className="text-sm">{payee.email}</p>
+                </div>
+              )}
+              
+              {/* Bank details (masked) */}
+              {payee.paymentDetails?.bankName && (
+                <div>
+                  <p className="text-xs text-slate-500 uppercase">Bank</p>
+                  <p className="text-sm">{payee.paymentDetails.bankName as string}</p>
+                </div>
+              )}
+
+              {payee.paymentDetails?.accountLast4 && (
+                <div>
+                  <p className="text-xs text-slate-500 uppercase">Account</p>
+                  <p className="text-sm font-mono">****{payee.paymentDetails.accountLast4 as string}</p>
+                </div>
+              )}
+
+              {payee.trackingNumber && (
+                <div className="col-span-2">
+                  <p className="text-xs text-slate-500 uppercase">Tracking Number</p>
+                  <p className="text-sm text-blue-600">{payee.trackingNumber}</p>
+                </div>
+              )}
+            </div>
+
+            {/* Actions */}
+            {canEdit && payee.status === 'PENDING' && (
+              <div className="flex justify-end gap-2 mt-4 pt-4 border-t">
+                <Button variant="outline" size="sm">
+                  <Edit className="h-3 w-3 mr-1" />
+                  Edit
+                </Button>
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button variant="outline" size="sm" className="text-red-600 hover:text-red-700">
+                      <Trash2 className="h-3 w-3 mr-1" />
+                      Remove
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Remove Payee</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        Are you sure you want to remove {payee.name} from this escrow?
+                        This action cannot be undone.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                      <AlertDialogAction
+                        onClick={onRemove}
+                        className="bg-red-600 hover:bg-red-700"
+                      >
+                        Remove
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              </div>
+            )}
+          </div>
+        </CollapsibleContent>
+      </div>
+    </Collapsible>
+  );
+}
