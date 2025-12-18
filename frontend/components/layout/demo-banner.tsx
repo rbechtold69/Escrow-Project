@@ -20,10 +20,10 @@ export function DemoBanner() {
   }
 
   return (
-    <div className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white text-center py-2 px-4 text-sm">
+    <div className="bg-gradient-to-r from-[#0a1a3a] to-[#00b4d8] text-white text-center py-2 px-4 text-sm">
       <span className="font-medium">🧪 Demo Environment</span>
       <span className="mx-2">•</span>
-      <span className="text-purple-200">
+      <span className="text-cyan-200">
         This is a test environment. No real money is being moved.
       </span>
     </div>

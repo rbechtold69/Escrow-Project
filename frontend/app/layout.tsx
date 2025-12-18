@@ -9,8 +9,8 @@ import { Toaster } from '@/components/ui/toaster';
 const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
-  title: 'EscrowBase - Modern Real Estate Escrow',
-  description: 'Secure, yield-generating real estate escrow platform',
+  title: 'EscrowPayi - Modern Real Estate Escrow',
+  description: 'Secure, instant real estate escrow powered by USDC',
 };
 
 export default function RootLayout({

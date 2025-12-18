@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { useAccount, useConnect } from 'wagmi';
 import { 
   Plus, 
@@ -13,10 +14,9 @@ import {
   XCircle, 
   AlertCircle,
   Shield,
-  TrendingUp,
+  Zap,
   Users,
   ArrowRight,
-  Sparkles,
 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -149,19 +149,30 @@ export default function HomePage() {
       <div className="min-h-[80vh] flex flex-col">
         {/* Hero Section */}
         <div className="flex-1 flex flex-col items-center justify-center text-center px-4 py-16">
-          <Badge className="mb-6 bg-blue-100 text-blue-700 hover:bg-blue-100">
-            <Sparkles className="h-3 w-3 mr-1" />
-            Earn 5% APY on Escrow Funds
+          {/* Logo */}
+          <div className="mb-8">
+            <Image 
+              src="/logo.png" 
+              alt="EscrowPayi" 
+              width={120} 
+              height={120}
+              className="mx-auto"
+            />
+          </div>
+
+          <Badge className="mb-6 bg-cyan-100 text-cyan-700 hover:bg-cyan-100">
+            <Zap className="h-3 w-3 mr-1" />
+            Instant Settlement with USDC
           </Badge>
           
           <h1 className="text-4xl md:text-5xl font-bold text-gray-900 mb-4 max-w-3xl">
-            Modern Real Estate Escrow
-            <span className="text-blue-600"> That Works for You</span>
+            Real Estate Escrow
+            <span className="text-[#00b4d8]"> Reimagined</span>
           </h1>
           
           <p className="text-xl text-gray-600 max-w-2xl mb-10">
-            Secure, transparent escrow management with yield generation. 
-            Your funds work while they wait, earning returns backed by US Treasury investments.
+            Secure, transparent escrow management with instant settlement. 
+            Close faster, reduce wire fraud, and keep all parties informed in real-time.
           </p>
 
           {/* Auth Buttons */}
@@ -170,7 +181,7 @@ export default function HomePage() {
               size="lg" 
               onClick={handleSignIn}
               disabled={isPending}
-              className="bg-blue-600 hover:bg-blue-700 text-lg px-8 py-6"
+              className="bg-[#0a1a3a] hover:bg-[#0d2347] text-lg px-8 py-6"
             >
               {isPending ? 'Connecting...' : 'Sign In'}
               <ArrowRight className="ml-2 h-5 w-5" />
@@ -180,7 +191,7 @@ export default function HomePage() {
               variant="outline"
               onClick={handleSignIn}
               disabled={isPending}
-              className="text-lg px-8 py-6"
+              className="text-lg px-8 py-6 border-[#00b4d8] text-[#00b4d8] hover:bg-[#00b4d8] hover:text-white"
             >
               Create Account
             </Button>
@@ -188,22 +199,22 @@ export default function HomePage() {
 
           {/* Features */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-4xl w-full">
-            <Card className="text-left">
+            <Card className="text-left border-t-4 border-t-[#00b4d8]">
               <CardHeader className="pb-3">
-                <div className="p-2 bg-emerald-100 rounded-lg w-fit mb-2">
-                  <TrendingUp className="h-5 w-5 text-emerald-600" />
+                <div className="p-2 bg-cyan-100 rounded-lg w-fit mb-2">
+                  <Zap className="h-5 w-5 text-cyan-600" />
                 </div>
-                <CardTitle className="text-lg">Earn While You Wait</CardTitle>
+                <CardTitle className="text-lg">Instant Settlement</CardTitle>
               </CardHeader>
               <CardContent>
                 <p className="text-gray-600 text-sm">
-                  Escrow funds earn 5% APY from US Treasury-backed investments. 
-                  Buyers receive yield as closing cost credits.
+                  Close in minutes, not days. USDC-powered disbursements 
+                  eliminate wire delays and reduce fraud risk.
                 </p>
               </CardContent>
             </Card>
 
-            <Card className="text-left">
+            <Card className="text-left border-t-4 border-t-[#0a1a3a]">
               <CardHeader className="pb-3">
                 <div className="p-2 bg-blue-100 rounded-lg w-fit mb-2">
                   <Shield className="h-5 w-5 text-blue-600" />
@@ -212,13 +223,13 @@ export default function HomePage() {
               </CardHeader>
               <CardContent>
                 <p className="text-gray-600 text-sm">
-                  We never store bank account numbers. All sensitive data is 
-                  tokenized and secured by SOC 2 compliant infrastructure.
+                  We never store bank account numbers. Multi-signature 
+                  protection ensures no single point of failure.
                 </p>
               </CardContent>
             </Card>
 
-            <Card className="text-left">
+            <Card className="text-left border-t-4 border-t-[#00b4d8]">
               <CardHeader className="pb-3">
                 <div className="p-2 bg-purple-100 rounded-lg w-fit mb-2">
                   <Users className="h-5 w-5 text-purple-600" />
@@ -239,9 +250,9 @@ export default function HomePage() {
         <div className="border-t py-8 text-center text-gray-500 text-sm">
           <p>Trusted by escrow professionals across the country</p>
           <div className="flex justify-center items-center gap-8 mt-4 text-gray-400">
-            <span>🔒 SOC 2 Compliant</span>
-            <span>🏦 FDIC Insured Partner</span>
-            <span>⚡ Real-time Updates</span>
+            <span>🔒 Bank-Grade Security</span>
+            <span>⚡ Instant Settlement</span>
+            <span>👁️ Full Transparency</span>
           </div>
         </div>
       </div>

@@ -2,8 +2,9 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { useAccount, useConnect, useDisconnect } from 'wagmi';
-import { Building2, LogOut, ChevronDown, LayoutDashboard } from 'lucide-react';
+import { LogOut, ChevronDown, LayoutDashboard } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -39,10 +40,18 @@ export function Navbar() {
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
           <Link href="/" className="flex items-center gap-2">
-            <div className="p-1.5 bg-blue-600 rounded-lg">
-              <Building2 className="h-5 w-5 text-white" />
-            </div>
-            <span className="font-bold text-xl text-gray-900">EscrowBase</span>
+            <Image 
+              src="/logo.png" 
+              alt="EscrowPayi" 
+              width={40} 
+              height={40}
+              className="h-10 w-auto"
+            />
+            <span className="font-bold text-xl">
+              <span className="text-[#0a1a3a]">Escrow</span>
+              <span className="text-[#00b4d8]">Payi</span>
+              <span className="text-[#00b4d8]">.</span>
+            </span>
           </Link>
 
           {/* Navigation Links - Only show when authenticated */}
