@@ -113,7 +113,7 @@ export async function scanForEscrowClosedEvents(
             const escrow = await prisma.escrow.findFirst({
               where: {
                 vaultAddress: vaultAddress.toLowerCase(),
-                closingTxHash: log.transactionHash,
+                closeTxHash: log.transactionHash,
               },
             });
 
@@ -168,10 +168,7 @@ async function processEvent(vaultAddress: string, log: any): Promise<void> {
     data: {
       status: 'CLOSED',
       closedAt: new Date(),
-      closingTxHash: log.transactionHash,
-      yieldEarned: Number(args.totalYield) / 1e6,
-      platformFee: Number(args.platformFee) / 1e6,
-      buyerRebate: Number(args.buyerRebate) / 1e6,
+      closeTxHash: log.transactionHash,
     },
   });
 
@@ -180,14 +177,14 @@ async function processEvent(vaultAddress: string, log: any): Promise<void> {
     data: {
       escrowId: escrow.id,
       action: 'ESCROW_CLOSED_DETECTED',
-      actor: 'SYSTEM',
-      details: JSON.stringify({
+      actorWallet: 'SYSTEM',
+      details: {
         txHash: log.transactionHash,
         blockNumber: log.blockNumber.toString(),
         totalPrincipal: Number(args.totalPrincipal) / 1e6,
         totalYield: Number(args.totalYield) / 1e6,
         payeeCount: args.payees.length,
-      }),
+      },
     },
   });
 

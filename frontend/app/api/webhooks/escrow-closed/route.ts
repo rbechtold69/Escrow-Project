@@ -249,13 +249,13 @@ async function processEscrowClosedEvent(
             amount,
             beneficiaryId: dbPayee.bridgeBeneficiaryId,
             sourceAccountId: escrow.bridgeVirtualAccountId || '',
-            memo: `Escrow ${escrow.fileNumber} - ${dbPayee.firstName} ${dbPayee.lastName}`,
+            memo: `Escrow ${escrow.escrowId} - ${dbPayee.firstName} ${dbPayee.lastName}`,
           })
         : await initiateACHTransfer({
             amount,
             beneficiaryId: dbPayee.bridgeBeneficiaryId,
             sourceAccountId: escrow.bridgeVirtualAccountId || '',
-            memo: `Escrow ${escrow.fileNumber} - ${dbPayee.firstName} ${dbPayee.lastName}`,
+            memo: `Escrow ${escrow.escrowId} - ${dbPayee.firstName} ${dbPayee.lastName}`,
           });
 
       // Update payee record with Bridge transfer ID
@@ -304,10 +304,7 @@ async function processEscrowClosedEvent(
     data: {
       status: 'CLOSED',
       closedAt: new Date(),
-      closingTxHash: txHash,
-      yieldEarned: Number(event.totalYield) / 1e6,
-      platformFee: Number(event.platformFee) / 1e6,
-      buyerRebate: Number(event.buyerRebate) / 1e6,
+      closeTxHash: txHash,
     },
   });
 
@@ -316,15 +313,15 @@ async function processEscrowClosedEvent(
     data: {
       escrowId,
       action: 'ESCROW_CLOSED',
-      actor: 'SYSTEM',
-      details: JSON.stringify({
+      actorWallet: 'SYSTEM',
+      details: {
         txHash,
         totalPrincipal: Number(event.totalPrincipal) / 1e6,
         totalYield: Number(event.totalYield) / 1e6,
         platformFee: Number(event.platformFee) / 1e6,
         buyerRebate: Number(event.buyerRebate) / 1e6,
         payouts: payeeResults,
-      }),
+      },
     },
   });
 

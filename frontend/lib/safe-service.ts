@@ -7,7 +7,7 @@ import { ethers } from 'ethers';
 // Configuration
 // ============================================================
 
-const CHAIN_ID = process.env.NODE_ENV === 'production' ? 8453n : 84532n; // Base / Base Sepolia
+const CHAIN_ID = process.env.NODE_ENV === 'production' ? BigInt(8453) : BigInt(84532); // Base / Base Sepolia
 const RPC_URL = process.env.RPC_URL!;
 
 // Safe infrastructure addresses on Base
@@ -275,7 +275,8 @@ export class SafeService {
 
     // Add all existing signatures
     for (const confirmation of pendingTx.confirmations!) {
-      safeTransaction.addSignature({
+      // Use type assertion for Safe SDK compatibility
+      (safeTransaction as any).addSignature({
         signer: confirmation.owner,
         data: confirmation.signature,
         isContractSignature: false,

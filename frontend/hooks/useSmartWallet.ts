@@ -277,7 +277,7 @@ export function useContractWrite() {
         address: params.address,
         abi: params.abi,
         functionName: params.functionName,
-        args: params.args,
+        args: params.args || [],
         value: params.value,
       });
       setTxHash(hash);

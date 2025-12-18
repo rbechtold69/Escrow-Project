@@ -132,7 +132,7 @@ export async function POST(request: NextRequest) {
       
       // USDC liquidated to fiat - payout ready
       onLiquidationCompleted: async (event) => {
-        const { amount, transaction_hash, metadata } = event.data;
+        const { amount, metadata } = event.data;
         const payeeId = metadata?.payee_id;
         const escrowId = metadata?.escrow_id;
         
@@ -146,7 +146,6 @@ export async function POST(request: NextRequest) {
           where: { id: payeeId },
           data: {
             status: 'PROCESSING',
-            liquidationTxHash: transaction_hash,
           },
         });
       },
@@ -164,7 +163,7 @@ export async function POST(request: NextRequest) {
         await prisma.payee.update({
           where: { id: payeeId },
           data: {
-            status: 'PAID',
+            status: 'COMPLETED',
             paidAt: new Date(),
           },
         });
@@ -173,7 +172,7 @@ export async function POST(request: NextRequest) {
         const unpaidPayees = await prisma.payee.count({
           where: {
             escrowId,
-            status: { not: 'PAID' },
+            status: { not: 'COMPLETED' },
           },
         });
         
@@ -201,7 +200,6 @@ export async function POST(request: NextRequest) {
           where: { id: payeeId },
           data: {
             status: 'FAILED',
-            notes: 'Transfer failed - please retry',
           },
         });
       },

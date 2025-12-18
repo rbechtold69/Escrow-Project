@@ -68,7 +68,11 @@ interface Payee {
   basisPoints?: number;
   usePercentage: boolean;
   status: 'PENDING' | 'READY' | 'PROCESSING' | 'PAID' | 'FAILED' | 'QUEUED' | 'COMPLETED';
-  paymentDetails: Record<string, unknown>;
+  paymentDetails: {
+    bankName?: string;
+    accountLast4?: string;
+    walletAddress?: string;
+  };
   paidAt?: Date;
   trackingNumber?: string;
 }
@@ -412,14 +416,14 @@ function PayeeCard({
               {payee.paymentDetails?.bankName && (
                 <div>
                   <p className="text-xs text-slate-500 uppercase">Bank</p>
-                  <p className="text-sm">{payee.paymentDetails.bankName as string}</p>
+                  <p className="text-sm">{payee.paymentDetails.bankName}</p>
                 </div>
               )}
 
               {payee.paymentDetails?.accountLast4 && (
                 <div>
                   <p className="text-xs text-slate-500 uppercase">Account</p>
-                  <p className="text-sm font-mono">****{payee.paymentDetails.accountLast4 as string}</p>
+                  <p className="text-sm font-mono">****{payee.paymentDetails.accountLast4}</p>
                 </div>
               )}
 

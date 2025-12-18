@@ -260,7 +260,7 @@ export function EscrowPageExample() {
           <div className="text-center py-20">
             <h1 className="text-2xl font-bold mb-4">Welcome to EscrowBase</h1>
             <p className="text-gray-600 mb-8">Sign in to manage your escrow accounts</p>
-            <LoginButton variant="primary" />
+            <LoginButton variant="large" />
           </div>
         ) : (
           <div className="space-y-8">

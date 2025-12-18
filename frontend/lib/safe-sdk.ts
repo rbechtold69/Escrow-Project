@@ -20,7 +20,7 @@ import {
 // ============ Configuration ============
 
 // Base Sepolia Chain ID
-const CHAIN_ID = 84532n;
+const CHAIN_ID = BigInt(84532);
 
 // Safe Transaction Service URL for Base Sepolia
 // Note: Safe doesn't have official service for Base Sepolia yet,
@@ -317,7 +317,8 @@ export class SafeService {
         if ((tx.confirmations?.length || 0) >= (tx.confirmationsRequired || DEFAULT_THRESHOLD)) {
           // Execute the transaction
           const executeTxResponse = await protocolKit.executeTransaction(tx as any);
-          const receipt = await executeTxResponse.transactionResponse?.wait();
+          const txResponse = executeTxResponse.transactionResponse as any;
+          const receipt = txResponse?.wait ? await txResponse.wait() : null;
           
           console.log('[SafeService] Transaction executed:', receipt?.hash);
           return receipt?.hash || null;
