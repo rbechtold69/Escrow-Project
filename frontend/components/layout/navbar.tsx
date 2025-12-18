@@ -39,18 +39,15 @@ export function Navbar() {
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
           <Link href="/" className="flex items-center">
-            <div className="bg-white p-1 rounded">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img 
-                src="/logo.png" 
-                alt="EscrowPayi" 
-                className="h-10 w-auto"
-                style={{ 
-                  mixBlendMode: 'multiply',
-                  filter: 'contrast(1.1)'
-                }}
-              />
-            </div>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img 
+              src="/logo.png" 
+              alt="EscrowPayi" 
+              className="h-14 w-auto"
+              style={{ 
+                mixBlendMode: 'multiply'
+              }}
+            />
           </Link>
 
           {/* Navigation Links - Only show when authenticated */}

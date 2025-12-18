@@ -147,29 +147,48 @@ export default function HomePage() {
     return (
       <div className="min-h-[80vh] flex flex-col">
         {/* Hero Section */}
-        <div className="flex-1 flex flex-col items-center justify-center text-center px-4 py-16">
+        <div className="flex-1 flex flex-col items-center justify-center text-center px-4 py-12">
+          {/* Large Logo */}
+          <div className="mb-6">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img 
+              src="/logo.png" 
+              alt="EscrowPayi" 
+              className="h-32 md:h-40 w-auto mx-auto"
+              style={{ mixBlendMode: 'multiply' }}
+            />
+          </div>
+
+          {/* Company Name */}
+          <h1 className="text-5xl md:text-6xl font-bold mb-2">
+            <span className="text-[#0a1a3a]">Escrow</span>
+            <span className="text-[#00b4d8]">Payi</span>
+            <span className="text-[#00b4d8]">.</span>
+          </h1>
+          
+          <p className="text-lg text-gray-500 mb-6">www.escrowpayi.com</p>
+
           <Badge className="mb-6 bg-cyan-100 text-cyan-700 hover:bg-cyan-100">
             <Zap className="h-3 w-3 mr-1" />
             Instant Settlement with USDC
           </Badge>
           
-          <h1 className="text-4xl md:text-5xl font-bold text-gray-900 mb-4 max-w-3xl">
-            Real Estate Escrow
-            <span className="text-[#00b4d8]"> Reimagined</span>
-          </h1>
+          <h2 className="text-2xl md:text-3xl font-semibold text-gray-800 mb-4 max-w-2xl">
+            Real Estate Escrow <span className="text-[#00b4d8]">Reimagined</span>
+          </h2>
           
-          <p className="text-xl text-gray-600 max-w-2xl mb-10">
+          <p className="text-lg text-gray-600 max-w-2xl mb-10">
             Secure, transparent escrow management with instant settlement. 
             Close faster, reduce wire fraud, and keep all parties informed in real-time.
           </p>
 
           {/* Auth Buttons */}
-          <div className="flex flex-col sm:flex-row gap-4 mb-16">
+          <div className="flex flex-col sm:flex-row gap-4 mb-12">
             <Button 
               size="lg" 
               onClick={handleSignIn}
               disabled={isPending}
-              className="bg-[#0a1a3a] hover:bg-[#0d2347] text-lg px-8 py-6"
+              className="bg-[#0a1a3a] hover:bg-[#0d2347] text-lg px-10 py-6 shadow-lg"
             >
               {isPending ? 'Connecting...' : 'Sign In'}
               <ArrowRight className="ml-2 h-5 w-5" />
@@ -179,7 +198,7 @@ export default function HomePage() {
               variant="outline"
               onClick={handleSignIn}
               disabled={isPending}
-              className="text-lg px-8 py-6 border-[#00b4d8] text-[#00b4d8] hover:bg-[#00b4d8] hover:text-white"
+              className="text-lg px-10 py-6 border-2 border-[#00b4d8] text-[#00b4d8] hover:bg-[#00b4d8] hover:text-white shadow-lg"
             >
               Create Account
             </Button>
