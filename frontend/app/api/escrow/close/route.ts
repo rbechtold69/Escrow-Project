@@ -209,9 +209,9 @@ export async function POST(request: NextRequest) {
       finalBalanceUSDC: estimatedUSDC,
       totalYield: estimatedUSDC > (initialDeposit as bigint) 
         ? estimatedUSDC - (initialDeposit as bigint) 
-        : 0n,
-      platformFee: 0n, // Would be parsed from event
-      buyerRebate: 0n,  // Would be parsed from event
+        : BigInt(0),
+      platformFee: BigInt(0), // Would be parsed from event
+      buyerRebate: BigInt(0),  // Would be parsed from event
     };
     
     // ════════════════════════════════════════════════════════════════════════
@@ -283,7 +283,6 @@ export async function POST(request: NextRequest) {
         status: 'CLOSED',
         closedAt: new Date(),
         closeTxHash: closeTxHash,
-        accruedYield: formatUnits(yieldBreakdown.totalYield, 6),
       },
     });
     

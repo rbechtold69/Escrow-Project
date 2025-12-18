@@ -240,7 +240,7 @@ export async function getYieldData(vaultAddress: `0x${string}`): Promise<YieldDa
   const initialDeposit = formatUnits(summary.initialDepositUSDC, 6);
   
   // Calculate yield percentage
-  const yieldPercentage = summary.initialDepositUSDC > 0n
+  const yieldPercentage = summary.initialDepositUSDC > BigInt(0)
     ? (Number(summary.estimatedYield) / Number(summary.initialDepositUSDC) * 100).toFixed(4)
     : '0';
   
