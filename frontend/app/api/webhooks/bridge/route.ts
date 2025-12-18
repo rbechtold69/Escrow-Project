@@ -109,15 +109,7 @@ export async function POST(request: NextRequest) {
           
         } catch (error) {
           console.error(`Failed to deposit to vault: ${error}`);
-          
-          // Update status to indicate error - keep as DEPOSIT_PENDING with error note
-          await prisma.escrow.update({
-            where: { escrowId },
-            data: {
-              status: 'DEPOSIT_PENDING',
-              notes: `Deposit processing error: ${error}`,
-            },
-          });
+          // Keep status as DEPOSIT_PENDING - error is logged but not stored
         }
       },
       
