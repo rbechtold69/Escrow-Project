@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import Image from 'next/image';
 import { useAccount, useConnect } from 'wagmi';
 import { 
   Plus, 
@@ -149,17 +148,6 @@ export default function HomePage() {
       <div className="min-h-[80vh] flex flex-col">
         {/* Hero Section */}
         <div className="flex-1 flex flex-col items-center justify-center text-center px-4 py-16">
-          {/* Logo */}
-          <div className="mb-8">
-            <Image 
-              src="/logo.png" 
-              alt="EscrowPayi" 
-              width={120} 
-              height={120}
-              className="mx-auto"
-            />
-          </div>
-
           <Badge className="mb-6 bg-cyan-100 text-cyan-700 hover:bg-cyan-100">
             <Zap className="h-3 w-3 mr-1" />
             Instant Settlement with USDC

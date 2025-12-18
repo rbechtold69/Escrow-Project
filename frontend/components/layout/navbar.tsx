@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import Image from 'next/image';
 import { useAccount, useConnect, useDisconnect } from 'wagmi';
 import { LogOut, ChevronDown, LayoutDashboard } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -40,11 +39,10 @@ export function Navbar() {
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
           <Link href="/" className="flex items-center gap-2">
-            <Image 
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img 
               src="/logo.png" 
               alt="EscrowPayi" 
-              width={40} 
-              height={40}
               className="h-10 w-auto"
             />
             <span className="font-bold text-xl">
