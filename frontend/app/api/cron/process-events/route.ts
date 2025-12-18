@@ -1,21 +1,19 @@
-/**
- * Cron API Route - Process Escrow Events
- * 
- * Called periodically to scan for and process EscrowClosed events.
- * 
- * DEPLOYMENT:
- * - Vercel Cron: Add to vercel.json
- * - Railway: Use cron job feature
- * - Manual: Call via curl or scheduler
- * 
- * vercel.json example:
- * {
- *   "crons": [{
- *     "path": "/api/cron/process-events",
- *     "schedule": "*/5 * * * *"
- *   }]
- * }
- */
+// Cron API Route - Process Escrow Events
+// 
+// Called periodically to scan for and process EscrowClosed events.
+// 
+// DEPLOYMENT:
+// - Vercel Cron: Add to vercel.json
+// - Railway: Use cron job feature
+// - Manual: Call via curl or scheduler
+// 
+// vercel.json example:
+// {
+//   "crons": [{
+//     "path": "/api/cron/process-events",
+//     "schedule": "every 5 minutes"
+//   }]
+// }
 
 import { NextRequest, NextResponse } from 'next/server';
 import { runEventScan } from '@/lib/event-listener';

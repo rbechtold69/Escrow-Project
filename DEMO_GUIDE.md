@@ -182,3 +182,5 @@ A: USDM is pegged 1:1 to USD. There's no exposure to crypto volatility. The bloc
 
 *Last updated: December 2024*
 
+
+
