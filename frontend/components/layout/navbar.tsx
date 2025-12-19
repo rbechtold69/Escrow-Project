@@ -39,12 +39,11 @@ export function Navbar() {
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
           <Link href="/" className="flex items-center">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img 
-              src="/logo.png" 
-              alt="EscrowPayi" 
-              className="h-12 w-auto"
-            />
+            <span className="text-2xl font-bold tracking-tight">
+              <span className="text-[#0a1a3a]">Escrow</span>
+              <span className="text-[#00b4d8]">Payi</span>
+              <span className="text-[#00b4d8]">.</span>
+            </span>
           </Link>
 
           {/* Navigation Links - Only show when authenticated */}
