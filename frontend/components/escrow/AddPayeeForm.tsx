@@ -491,7 +491,7 @@ export function AddPayeeForm({
           Add Payee
         </CardTitle>
         <CardDescription>
-          Enter recipient details for disbursement. Bank information is securely tokenized.
+          Enter recipient details for disbursement. Bank information is encrypted and protected.
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -708,7 +708,7 @@ export function AddPayeeForm({
                 {selectedMethod === 'CHECK' ? 'Check Recipient Details' : 'Bank Account Details'}
               </h4>
               <p className="text-xs text-blue-600 mb-4">
-                🔒 Your bank information is encrypted and securely tokenized. We never store full account numbers.
+                🔒 Your bank information is encrypted end-to-end. We never store full account numbers.
               </p>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2 md:col-span-2">

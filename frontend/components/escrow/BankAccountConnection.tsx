@@ -326,7 +326,7 @@ export function BankAccountConnection({
           <Alert className="bg-blue-50 border-blue-200">
             <Shield className="h-4 w-4 text-blue-600" />
             <AlertDescription className="text-blue-800 text-sm">
-              Your bank information is encrypted and securely tokenized. 
+              Your bank information is encrypted end-to-end. 
               We never store full account numbers.
             </AlertDescription>
           </Alert>
