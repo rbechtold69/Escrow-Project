@@ -144,7 +144,7 @@ const paymentMethodIcons: Record<string, React.ReactNode> = {
 };
 
 const paymentMethodLabels: Record<string, string> = {
-  USDC: 'USDC Direct',
+  USDC: 'Instant Direct',
   WIRE: 'Wire Transfer',
   ACH: 'ACH Transfer',
   CHECK: 'Physical Check',
@@ -214,7 +214,7 @@ export function DisbursementSheet({
               <p className="text-xl font-semibold">{formatCurrency(purchasePrice)}</p>
             </div>
             <div>
-              <p className="text-xs text-slate-400 uppercase tracking-wide">USDC Balance</p>
+              <p className="text-xs text-slate-400 uppercase tracking-wide">Escrow Balance</p>
               <p className="text-xl font-semibold text-emerald-400">
                 {formatCurrency(currentBalance)}
               </p>

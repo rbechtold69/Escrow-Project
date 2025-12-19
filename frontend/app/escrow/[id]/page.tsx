@@ -145,14 +145,14 @@ export default function EscrowDetailPage() {
     'deposit-received': (data: { amount: string; status: string }) => {
       toast({
         title: 'Deposit Received! ✓',
-        description: `$${parseFloat(data.amount).toLocaleString()} USDC has been deposited`,
+        description: `$${parseFloat(data.amount).toLocaleString()} has been deposited`,
       });
       fetchEscrow();
     },
     'payment-sent': (data: { payeeIndex: number; amount: string }) => {
       toast({
         title: 'Payment Sent',
-        description: `$${parseFloat(data.amount).toLocaleString()} USDC disbursed`,
+        description: `$${parseFloat(data.amount).toLocaleString()} disbursed`,
       });
       fetchEscrow();
     },
@@ -495,12 +495,12 @@ export default function EscrowDetailPage() {
 
           {/* Sidebar */}
           <div className="space-y-6">
-            {/* USDC Balance Card */}
+            {/* Escrow Balance Card */}
             <Card className="bg-gradient-to-br from-blue-500 to-blue-600 text-white">
               <CardHeader className="pb-2">
                 <CardTitle className="text-lg font-medium flex items-center gap-2">
                   <DollarSign className="h-5 w-5" />
-                  USDC Balance
+                  Escrow Balance
                 </CardTitle>
               </CardHeader>
               <CardContent>
@@ -508,7 +508,7 @@ export default function EscrowDetailPage() {
                   {formatCurrency(escrow.currentBalance || 0)}
                 </div>
                 <p className="text-blue-100 text-sm mt-1">
-                  Held in Safe Multisig
+                  Held in Secure Escrow
                 </p>
                 <div className="mt-4 pt-4 border-t border-blue-400/30">
                   <div className="flex justify-between text-sm">

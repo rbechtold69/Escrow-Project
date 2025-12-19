@@ -10,7 +10,7 @@ const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
   title: 'EscrowPayi - Modern Real Estate Escrow',
-  description: 'Secure, instant real estate escrow powered by USDC',
+  description: 'Secure, instant real estate escrow with digital settlement',
 };
 
 export default function RootLayout({

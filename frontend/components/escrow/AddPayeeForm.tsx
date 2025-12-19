@@ -256,7 +256,7 @@ interface AddPayeeFormProps {
 // ============================================================
 
 const paymentMethodLabels: Record<PaymentMethod, string> = {
-  USDC: 'USDC Direct (Instant)',
+  USDC: 'Instant Direct Transfer',
   WIRE: 'Wire Transfer (1-2 days)',
   ACH: 'ACH Transfer (2-3 days)',
   CHECK: 'Physical Check (5-7 days)',
@@ -325,7 +325,7 @@ export function AddPayeeForm({
     // Manual validation for payment-specific fields
     if (data.paymentMethod === 'USDC') {
       if (!data.walletAddress || !/^0x[a-fA-F0-9]{40}$/.test(data.walletAddress)) {
-        setSubmitError('Please enter a valid wallet address (0x followed by 40 hex characters)');
+        setSubmitError('Please enter a valid payment address (0x followed by 40 characters)');
         return;
       }
     } else {
@@ -589,17 +589,17 @@ export function AddPayeeForm({
             />
           </div>
 
-          {/* Payment Details - USDC or Bank */}
+          {/* Payment Details - Instant or Bank */}
           {selectedMethod === 'USDC' ? (
             <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
               <h4 className="font-medium text-blue-800 mb-3">
-                USDC Wallet Address
+                Instant Payment Address
               </h4>
               <p className="text-xs text-blue-600 mb-4">
-                💎 USDC will be sent directly to this wallet on Base network. Instant settlement with no fees.
+                ⚡ Funds will be sent directly to this address. Instant settlement with no fees.
               </p>
               <div className="space-y-2">
-                <Label htmlFor="walletAddress">Wallet Address (Base Network)</Label>
+                <Label htmlFor="walletAddress">Payment Address</Label>
                 <Input
                   id="walletAddress"
                   placeholder="0x..."
@@ -610,7 +610,7 @@ export function AddPayeeForm({
                   <p className="text-xs text-red-500">{errors.walletAddress.message}</p>
                 )}
                 <p className="text-xs text-slate-500">
-                  Must be a valid Ethereum address (0x followed by 40 hex characters)
+                  Must be a valid address (0x followed by 40 characters)
                 </p>
               </div>
             </div>

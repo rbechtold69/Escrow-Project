@@ -66,7 +66,7 @@ export function DemoPanel({
       const result = await response.json();
       toast({
         title: '✓ Deposit Simulated',
-        description: `$${parseFloat(depositAmount).toLocaleString()} USDC deposited successfully`,
+        description: `$${parseFloat(depositAmount).toLocaleString()} deposited successfully`,
       });
       onAction();
     } catch (error: any) {
@@ -128,7 +128,7 @@ export function DemoPanel({
               <div className="flex gap-3">
                 <div className="flex-1">
                   <Label htmlFor="depositAmount" className="text-xs text-slate-500">
-                    Amount (USDC)
+                    Amount ($)
                   </Label>
                   <div className="relative">
                     <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">$</span>
@@ -158,15 +158,15 @@ export function DemoPanel({
                 </Button>
               </div>
               <p className="text-xs text-slate-500 mt-2">
-                Simulates a buyer wire transfer arriving as USDC in the escrow Safe
+                Simulates a buyer wire transfer arriving in the escrow account
               </p>
             </div>
 
             {/* Info Box */}
             <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
               <p className="text-sm text-blue-800">
-                <strong>USDC Only:</strong> All funds remain as 1:1 liquid USDC in the Safe multisig 
-                for instant settlement. No swaps or lending.
+                <strong>Instant Settlement:</strong> All funds are held securely in escrow 
+                and can be disbursed instantly at closing. No delays.
               </p>
             </div>
 

@@ -160,7 +160,7 @@ export default function HomePage() {
 
           <Badge className="mb-6 bg-cyan-100 text-cyan-700 hover:bg-cyan-100">
             <Zap className="h-3 w-3 mr-1" />
-            Instant Settlement with USDC
+            Instant Digital Settlement
           </Badge>
           
           <h2 className="text-2xl md:text-3xl font-semibold text-gray-800 mb-4 max-w-2xl">
@@ -205,7 +205,7 @@ export default function HomePage() {
               </CardHeader>
               <CardContent>
                 <p className="text-gray-600 text-sm">
-                  Close in minutes, not days. USDC-powered disbursements 
+                  Close in minutes, not days. Digital disbursements 
                   eliminate wire delays and reduce fraud risk.
                 </p>
               </CardContent>
@@ -220,8 +220,8 @@ export default function HomePage() {
               </CardHeader>
               <CardContent>
                 <p className="text-gray-600 text-sm">
-                  We never store bank account numbers. Multi-signature 
-                  protection ensures no single point of failure.
+                  We never store bank account numbers. Multi-approval 
+                  security ensures no single point of failure.
                 </p>
               </CardContent>
             </Card>

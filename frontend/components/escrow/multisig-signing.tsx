@@ -166,10 +166,10 @@ export function MultisigSigning({
         canInitiate && "border-blue-200 bg-blue-50"
       )}>
         <CardHeader className="pb-3">
-          <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Users className="h-5 w-5 text-slate-600" />
-              <CardTitle className="text-lg">Multisig Approval</CardTitle>
+              <CardTitle className="text-lg">Multi-Approval Required</CardTitle>
             </div>
             <Badge variant={isClosing ? "secondary" : "outline"}>
               {isClosing ? 'Pending Signatures' : 'Ready to Close'}
@@ -313,9 +313,9 @@ export function MultisigSigning({
             <AlertDialogDescription className="space-y-3">
               {actionType === 'initiate' && (
                 <>
-                  <p>This will create a multisig transaction to close escrow <strong>{escrowNumber}</strong>.</p>
+                  <p>This will create a secure transaction to close escrow <strong>{escrowNumber}</strong>.</p>
                   <div className="bg-slate-100 p-3 rounded text-sm">
-                    <p><strong>Balance:</strong> ${currentBalance.toLocaleString()} USDC</p>
+                    <p><strong>Balance:</strong> ${currentBalance.toLocaleString()}</p>
                     <p><strong>Payees:</strong> {payeeCount} recipients</p>
                     <p><strong>Total Disbursement:</strong> ${totalDisbursement.toLocaleString()}</p>
                   </div>
