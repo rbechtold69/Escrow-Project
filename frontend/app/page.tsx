@@ -148,25 +148,15 @@ export default function HomePage() {
       <div className="min-h-[80vh] flex flex-col">
         {/* Hero Section */}
         <div className="flex-1 flex flex-col items-center justify-center text-center px-4 py-12">
-          {/* Large Logo */}
-          <div className="mb-6">
+          {/* Large Logo with Company Name */}
+          <div className="mb-8">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img 
               src="/logo.png" 
-              alt="EscrowPayi" 
-              className="h-32 md:h-40 w-auto mx-auto"
-              style={{ mixBlendMode: 'multiply' }}
+              alt="EscrowPayi - Modern Real Estate Escrow" 
+              className="h-48 md:h-64 lg:h-72 w-auto mx-auto"
             />
           </div>
-
-          {/* Company Name */}
-          <h1 className="text-5xl md:text-6xl font-bold mb-2">
-            <span className="text-[#0a1a3a]">Escrow</span>
-            <span className="text-[#00b4d8]">Payi</span>
-            <span className="text-[#00b4d8]">.</span>
-          </h1>
-          
-          <p className="text-lg text-gray-500 mb-6">www.escrowpayi.com</p>
 
           <Badge className="mb-6 bg-cyan-100 text-cyan-700 hover:bg-cyan-100">
             <Zap className="h-3 w-3 mr-1" />

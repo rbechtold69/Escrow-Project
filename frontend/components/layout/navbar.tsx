@@ -43,10 +43,7 @@ export function Navbar() {
             <img 
               src="/logo.png" 
               alt="EscrowPayi" 
-              className="h-14 w-auto"
-              style={{ 
-                mixBlendMode: 'multiply'
-              }}
+              className="h-12 w-auto"
             />
           </Link>
 
