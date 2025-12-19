@@ -22,7 +22,11 @@ import {
   ClipboardCheck,
   CheckCircle2,
   XCircle,
+  Eye,
+  EyeOff,
+  Lock,
 } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -274,11 +278,17 @@ export function AddPayeeForm({
   onPayeeAdded,
   onCancel,
 }: AddPayeeFormProps) {
+  const { toast } = useToast();
   const [submitError, setSubmitError] = useState<string | null>(null);
   
   // Bank lookup state
   const [bankLookupStatus, setBankLookupStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   const [bankLookupError, setBankLookupError] = useState<string | null>(null);
+  
+  // Account number double-blind entry state
+  const [showAccountNumber, setShowAccountNumber] = useState(false);
+  const [confirmAccountNumber, setConfirmAccountNumber] = useState('');
+  const [accountsMatch, setAccountsMatch] = useState<boolean | null>(null);
 
   const {
     register,
@@ -309,6 +319,30 @@ export function AddPayeeForm({
   const basisPoints = watch('basisPoints');
   const selectedMethod = watch('paymentMethod');
   const routingNumber = watch('routingNumber');
+  const accountNumber = watch('accountNumber');
+
+  // Check if account numbers match
+  useEffect(() => {
+    if (confirmAccountNumber.length === 0) {
+      setAccountsMatch(null);
+      return;
+    }
+    setAccountsMatch(accountNumber === confirmAccountNumber && accountNumber.length >= 4);
+  }, [accountNumber, confirmAccountNumber]);
+
+  // Hold-to-reveal handlers
+  const startReveal = () => setShowAccountNumber(true);
+  const endReveal = () => setShowAccountNumber(false);
+
+  // Block paste on confirm field
+  const handlePasteBlock = (e: React.ClipboardEvent) => {
+    e.preventDefault();
+    toast({
+      title: 'Paste Disabled',
+      description: 'For security, please manually type the account number.',
+      variant: 'destructive',
+    });
+  };
 
   // Bank lookup when routing number is complete (9 digits)
   const fetchBankName = useCallback(async (rn: string) => {
@@ -389,6 +423,11 @@ export function AddPayeeForm({
       }
       if (!data.accountNumber || !/^\d{4,17}$/.test(data.accountNumber)) {
         setSubmitError('Account number must be 4-17 digits');
+        return;
+      }
+      // Double-blind entry validation
+      if (data.accountNumber !== confirmAccountNumber) {
+        setSubmitError('Account numbers do not match. Please re-enter to confirm.');
         return;
       }
     }
@@ -729,19 +768,89 @@ export function AddPayeeForm({
                     <p className="text-xs text-green-600">✓ Bank verified and auto-filled</p>
                   )}
                 </div>
+                {/* Account Number with Hold-to-Reveal */}
                 <div className="space-y-2">
                   <Label htmlFor="accountNumber">Account Number</Label>
-                  <Input
-                    id="accountNumber"
-                    placeholder="123456789"
-                    type="password"
-                    {...register('accountNumber')}
-                    className={cn(errors.accountNumber && 'border-red-500')}
-                  />
+                  <div className="relative">
+                    <Input
+                      id="accountNumber"
+                      placeholder="Enter account number"
+                      type={showAccountNumber ? 'text' : 'password'}
+                      inputMode="numeric"
+                      {...register('accountNumber')}
+                      className={cn('pr-12 font-mono', errors.accountNumber && 'border-red-500')}
+                    />
+                    {/* Hold-to-Reveal Eye Button */}
+                    <button
+                      type="button"
+                      className={cn(
+                        'absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded',
+                        'hover:bg-slate-100 transition-colors',
+                        'focus:outline-none focus:ring-2 focus:ring-blue-500',
+                        showAccountNumber && 'bg-blue-100'
+                      )}
+                      onMouseDown={startReveal}
+                      onMouseUp={endReveal}
+                      onMouseLeave={endReveal}
+                      onTouchStart={startReveal}
+                      onTouchEnd={endReveal}
+                      aria-label={showAccountNumber ? 'Hide account number' : 'Hold to reveal'}
+                    >
+                      {showAccountNumber ? (
+                        <Eye className="h-4 w-4 text-blue-600" />
+                      ) : (
+                        <EyeOff className="h-4 w-4 text-slate-400" />
+                      )}
+                    </button>
+                  </div>
+                  <p className="text-xs text-slate-500">Hold the eye icon to reveal • 4-17 digits</p>
                   {errors.accountNumber && (
                     <p className="text-xs text-red-500">{errors.accountNumber.message}</p>
                   )}
                 </div>
+
+                {/* Confirm Account Number with Anti-Paste */}
+                <div className="space-y-2">
+                  <Label htmlFor="confirmAccount" className="flex items-center gap-2">
+                    Confirm Account Number
+                    {accountsMatch === true && (
+                      <CheckCircle2 className="h-3 w-3 text-green-500" />
+                    )}
+                    {accountsMatch === false && (
+                      <XCircle className="h-3 w-3 text-red-500" />
+                    )}
+                  </Label>
+                  <div className="relative">
+                    <Input
+                      id="confirmAccount"
+                      type="password"
+                      inputMode="numeric"
+                      placeholder="Re-enter account number"
+                      value={confirmAccountNumber}
+                      onChange={(e) => setConfirmAccountNumber(e.target.value.replace(/\D/g, ''))}
+                      onPaste={handlePasteBlock}
+                      className={cn(
+                        'pr-10 font-mono',
+                        accountsMatch === true && 'border-green-500',
+                        accountsMatch === false && 'border-red-500'
+                      )}
+                    />
+                    <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                      <Lock className="h-4 w-4 text-slate-400" />
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1 text-xs text-slate-500">
+                    <Lock className="h-3 w-3" />
+                    <span>Paste disabled for security • Must type manually</span>
+                  </div>
+                  {accountsMatch === false && confirmAccountNumber.length > 0 && (
+                    <p className="text-xs text-red-500">Account numbers do not match</p>
+                  )}
+                  {accountsMatch === true && (
+                    <p className="text-xs text-green-600">✓ Account numbers match</p>
+                  )}
+                </div>
+
                 {selectedMethod === 'ACH' && (
                   <div className="space-y-2">
                     <Label>Account Type</Label>
