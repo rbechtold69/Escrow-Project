@@ -46,7 +46,7 @@ const BANK_DATABASE: Record<string, { name: string; city?: string; state?: strin
   '031000503': { name: 'Wells Fargo Bank, N.A.', city: 'Philadelphia', state: 'PA' },
   
   // Citibank
-  '021000089': { name: 'Citibank, N.A.', city: 'New York', state: 'NY' },
+  '021000082': { name: 'Citibank, N.A.', city: 'New York', state: 'NY' },
   '322271724': { name: 'Citibank, N.A.', city: 'Los Angeles', state: 'CA' },
   '271070801': { name: 'Citibank, N.A.', city: 'Chicago', state: 'IL' },
   '021272655': { name: 'Citibank, N.A.', city: 'New Castle', state: 'DE' },
@@ -89,9 +89,8 @@ const BANK_DATABASE: Record<string, { name: string; city?: string; state?: strin
   // Truist Bank
   '053101121': { name: 'Truist Bank', city: 'Charlotte', state: 'NC' },
   '061000104': { name: 'Truist Bank', city: 'Atlanta', state: 'GA' },
-  '051000017': { name: 'Truist Bank', city: 'Richmond', state: 'VA' },
   '055002707': { name: 'Truist Bank', city: 'Baltimore', state: 'MD' },
-  '063104668': { name: 'Truist Bank', city: 'Orlando', state: 'FL' },
+  '063192858': { name: 'Truist Bank', city: 'Orlando', state: 'FL' },
   
   // Charles Schwab
   '121202211': { name: 'Charles Schwab Bank, SSB', city: 'San Francisco', state: 'CA' },
@@ -119,7 +118,7 @@ const BANK_DATABASE: Record<string, { name: string; city?: string; state?: strin
   '062005690': { name: 'Regions Bank', city: 'Birmingham', state: 'AL' },
   '082000109': { name: 'Regions Bank', city: 'Little Rock', state: 'AR' },
   '064000017': { name: 'Regions Bank', city: 'Nashville', state: 'TN' },
-  '063104668': { name: 'Regions Bank', city: 'Orlando', state: 'FL' },
+  '063104893': { name: 'Regions Bank', city: 'Tampa', state: 'FL' },
   
   // Fifth Third Bank
   '042000314': { name: 'Fifth Third Bank, N.A.', city: 'Cincinnati', state: 'OH' },
@@ -148,7 +147,7 @@ const BANK_DATABASE: Record<string, { name: string; city?: string; state?: strin
   '121140399': { name: 'Silicon Valley Bank', city: 'Santa Clara', state: 'CA' },
   
   // Comerica Bank
-  '072000096': { name: 'Comerica Bank', city: 'Detroit', state: 'MI' },
+  '072000805': { name: 'Comerica Bank', city: 'Detroit', state: 'MI' },
   '121137522': { name: 'Comerica Bank', city: 'San Jose', state: 'CA' },
   '111000753': { name: 'Comerica Bank', city: 'Dallas', state: 'TX' },
   
@@ -156,7 +155,7 @@ const BANK_DATABASE: Record<string, { name: string; city?: string; state?: strin
   '021213591': { name: 'Synchrony Bank', city: 'Draper', state: 'UT' },
   
   // Chime (Bancorp/Stride)
-  '031101279': { name: 'Chime (The Bancorp Bank)', city: 'Wilmington', state: 'DE' },
+  '031101334': { name: 'Chime (The Bancorp Bank)', city: 'Wilmington', state: 'DE' },
   '103100195': { name: 'Chime (Stride Bank)', city: 'Enid', state: 'OK' },
   
   // Popular Direct
