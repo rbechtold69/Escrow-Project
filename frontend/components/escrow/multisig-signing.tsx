@@ -140,7 +140,12 @@ export function MultisigSigning({
   // Determine current state
   const isClosing = status === 'CLOSING';
   const isClosed = status === 'CLOSED';
-  const canInitiate = status === 'FUNDS_RECEIVED' || status === 'READY_TO_CLOSE';
+  const hasCorrectStatus = status === 'FUNDS_RECEIVED' || status === 'READY_TO_CLOSE';
+  
+  // Safety check: payee amounts must exactly match escrow balance
+  const balanceMatches = Math.abs(totalDisbursement - currentBalance) < 0.01; // Allow for tiny floating point differences
+  const canInitiate = hasCorrectStatus && balanceMatches && payeeCount > 0;
+  const balanceDifference = currentBalance - totalDisbursement;
 
   if (isClosed) {
     return (
@@ -171,8 +176,8 @@ export function MultisigSigning({
               <Users className="h-5 w-5 text-slate-600" />
               <CardTitle className="text-lg">Multi-Approval Required</CardTitle>
             </div>
-            <Badge variant={isClosing ? "secondary" : "outline"}>
-              {isClosing ? 'Pending Signatures' : 'Ready to Close'}
+            <Badge variant={isClosing ? "secondary" : canInitiate ? "default" : "outline"} className={cn(canInitiate && !isClosing && "bg-green-100 text-green-700")}>
+              {isClosing ? 'Pending Signatures' : canInitiate ? '✓ Ready to Close' : 'Configure Payees'}
             </Badge>
           </div>
           <CardDescription>
@@ -242,27 +247,93 @@ export function MultisigSigning({
               <p className="text-xs text-slate-500">Balance</p>
               <p className="font-semibold">${currentBalance.toLocaleString()}</p>
             </div>
-            <div className="text-center p-2 bg-slate-50 rounded">
+            <div className={cn(
+              "text-center p-2 rounded",
+              balanceMatches ? "bg-green-50" : "bg-amber-50"
+            )}>
               <p className="text-xs text-slate-500">To Disburse</p>
-              <p className="font-semibold">${totalDisbursement.toLocaleString()}</p>
+              <p className={cn(
+                "font-semibold",
+                balanceMatches ? "text-green-600" : "text-amber-600"
+              )}>
+                ${totalDisbursement.toLocaleString()}
+              </p>
             </div>
           </div>
+
+          {/* Warning when amounts don't match */}
+          {hasCorrectStatus && !isClosing && !balanceMatches && (
+            <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg">
+              <div className="flex items-start gap-2">
+                <AlertCircle className="h-4 w-4 text-amber-600 mt-0.5 flex-shrink-0" />
+                <div className="text-sm">
+                  <p className="font-medium text-amber-800">Amounts don't match</p>
+                  <p className="text-amber-600">
+                    {balanceDifference > 0 
+                      ? `$${balanceDifference.toLocaleString()} remaining to allocate`
+                      : `$${Math.abs(balanceDifference).toLocaleString()} over-allocated`
+                    }
+                  </p>
+                  <p className="text-xs text-amber-500 mt-1">
+                    Payee amounts must exactly equal the escrow balance to close.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Warning when no payees */}
+          {hasCorrectStatus && !isClosing && payeeCount === 0 && (
+            <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg">
+              <div className="flex items-start gap-2">
+                <AlertCircle className="h-4 w-4 text-slate-500 mt-0.5 flex-shrink-0" />
+                <div className="text-sm">
+                  <p className="font-medium text-slate-700">No payees added</p>
+                  <p className="text-slate-500">
+                    Add at least one payee before closing escrow.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Success indicator when ready */}
+          {hasCorrectStatus && !isClosing && balanceMatches && payeeCount > 0 && (
+            <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
+              <div className="flex items-start gap-2">
+                <Check className="h-4 w-4 text-green-600 mt-0.5 flex-shrink-0" />
+                <div className="text-sm">
+                  <p className="font-medium text-green-800">Ready to close</p>
+                  <p className="text-green-600">
+                    All ${totalDisbursement.toLocaleString()} allocated to {payeeCount} payee{payeeCount > 1 ? 's' : ''}.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
         </CardContent>
 
-        <CardFooter className="flex gap-2">
-          {/* Initial State: Can initiate close */}
-          {canInitiate && !isClosing && (
+        <CardFooter className="flex flex-col gap-2">
+          {/* Initial State: Show button (enabled only when amounts match) */}
+          {hasCorrectStatus && !isClosing && (
             <Button 
               onClick={() => openConfirmDialog('initiate')}
-              className="w-full"
-              disabled={isLoading}
+              className={cn(
+                "w-full",
+                canInitiate 
+                  ? "bg-green-600 hover:bg-green-700" 
+                  : "bg-slate-300 cursor-not-allowed"
+              )}
+              disabled={isLoading || !canInitiate}
             >
               {isLoading ? (
                 <Loader2 className="h-4 w-4 animate-spin mr-2" />
+              ) : canInitiate ? (
+                <ShieldCheck className="h-4 w-4 mr-2" />
               ) : (
-                <KeyRound className="h-4 w-4 mr-2" />
+                <AlertCircle className="h-4 w-4 mr-2" />
               )}
-              Initiate Close (Sign as Officer)
+              {canInitiate ? 'Close Escrow' : 'Close Escrow (Amounts Must Match)'}
             </Button>
           )}
 
