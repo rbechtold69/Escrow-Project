@@ -150,28 +150,29 @@ export function BankAccountConnection({
     setBankInfo(null);
     
     try {
-      // Using the routing numbers API
-      const response = await fetch(
-        `https://www.routingnumbers.info/api/data.json?rn=${routingNum}`
-      );
-      
-      if (!response.ok) {
-        throw new Error('Bank not found');
-      }
-      
+      // Using our local bank lookup API
+      const response = await fetch(`/api/bank/lookup?rn=${routingNum}`);
       const data = await response.json();
       
-      if (data.code === 200 && data.customer_name) {
+      if (!response.ok) {
+        throw new Error(data.error || 'Invalid routing number');
+      }
+      
+      if (data.valid && data.customer_name) {
         setBankInfo({
           name: data.customer_name,
           city: data.city,
           state: data.state,
         });
+        if (data.note) {
+          // Bank is valid but name not in our database
+          console.log('Bank lookup note:', data.note);
+        }
       } else {
         throw new Error('Invalid routing number');
       }
-    } catch (error) {
-      setBankError('Unable to verify bank. Please check the routing number.');
+    } catch (error: any) {
+      setBankError(error.message || 'Unable to verify bank. Please check the routing number.');
       setRoutingValid(false);
     } finally {
       setBankLoading(false);

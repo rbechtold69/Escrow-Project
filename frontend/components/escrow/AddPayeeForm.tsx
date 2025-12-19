@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useForm, Controller } from 'react-hook-form';
 import { 
   PlusCircle, 
@@ -20,6 +20,8 @@ import {
   AlertTriangle,
   Users,
   ClipboardCheck,
+  CheckCircle2,
+  XCircle,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -273,6 +275,10 @@ export function AddPayeeForm({
   onCancel,
 }: AddPayeeFormProps) {
   const [submitError, setSubmitError] = useState<string | null>(null);
+  
+  // Bank lookup state
+  const [bankLookupStatus, setBankLookupStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
+  const [bankLookupError, setBankLookupError] = useState<string | null>(null);
 
   const {
     register,
@@ -302,6 +308,49 @@ export function AddPayeeForm({
   const usePercentage = watch('usePercentage');
   const basisPoints = watch('basisPoints');
   const selectedMethod = watch('paymentMethod');
+  const routingNumber = watch('routingNumber');
+
+  // Bank lookup when routing number is complete (9 digits)
+  const fetchBankName = useCallback(async (rn: string) => {
+    if (!rn || rn.length !== 9) {
+      setBankLookupStatus('idle');
+      setBankLookupError(null);
+      return;
+    }
+    
+    setBankLookupStatus('loading');
+    setBankLookupError(null);
+    
+    try {
+      const response = await fetch(`/api/bank/lookup?rn=${rn}`);
+      const data = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(data.error || 'Invalid routing number');
+      }
+      
+      if (data.valid && data.customer_name) {
+        // Auto-populate bank name
+        setValue('bankName', data.customer_name);
+        setBankLookupStatus('success');
+      } else {
+        throw new Error('Invalid routing number');
+      }
+    } catch (error: any) {
+      setBankLookupStatus('error');
+      setBankLookupError(error.message || 'Invalid routing number');
+    }
+  }, [setValue]);
+
+  // Trigger bank lookup when routing number changes
+  useEffect(() => {
+    if (selectedMethod !== 'USDC' && routingNumber?.length === 9) {
+      fetchBankName(routingNumber);
+    } else if (routingNumber?.length !== 9) {
+      setBankLookupStatus('idle');
+      setBankLookupError(null);
+    }
+  }, [routingNumber, selectedMethod, fetchBankName]);
 
   // Calculate amount from percentage
   const calculatedAmount = usePercentage && basisPoints
@@ -624,28 +673,60 @@ export function AddPayeeForm({
               </p>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2 md:col-span-2">
-                  <Label htmlFor="bankName">Bank Name</Label>
+                  <Label htmlFor="bankName" className="flex items-center gap-2">
+                    Bank Name
+                    {bankLookupStatus === 'success' && (
+                      <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full">
+                        Auto-filled
+                      </span>
+                    )}
+                  </Label>
                   <Input
                     id="bankName"
-                    placeholder="Chase Bank"
+                    placeholder="Enter routing number to auto-fill, or type manually"
                     {...register('bankName')}
-                    className={cn(errors.bankName && 'border-red-500')}
+                    className={cn(
+                      errors.bankName && 'border-red-500',
+                      bankLookupStatus === 'success' && 'bg-green-50 border-green-300'
+                    )}
                   />
                   {errors.bankName && (
                     <p className="text-xs text-red-500">{errors.bankName.message}</p>
                   )}
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="routingNumber">Routing Number (ABA)</Label>
+                  <Label htmlFor="routingNumber" className="flex items-center gap-2">
+                    Routing Number (ABA)
+                    {bankLookupStatus === 'loading' && (
+                      <Loader2 className="h-3 w-3 animate-spin text-slate-400" />
+                    )}
+                    {bankLookupStatus === 'success' && (
+                      <CheckCircle2 className="h-3 w-3 text-green-500" />
+                    )}
+                    {bankLookupStatus === 'error' && (
+                      <XCircle className="h-3 w-3 text-red-500" />
+                    )}
+                  </Label>
                   <Input
                     id="routingNumber"
                     placeholder="021000021"
                     maxLength={9}
+                    inputMode="numeric"
                     {...register('routingNumber')}
-                    className={cn(errors.routingNumber && 'border-red-500')}
+                    className={cn(
+                      errors.routingNumber && 'border-red-500',
+                      bankLookupStatus === 'success' && 'border-green-500',
+                      bankLookupStatus === 'error' && 'border-red-500'
+                    )}
                   />
                   {errors.routingNumber && (
                     <p className="text-xs text-red-500">{errors.routingNumber.message}</p>
+                  )}
+                  {bankLookupError && (
+                    <p className="text-xs text-red-500">{bankLookupError}</p>
+                  )}
+                  {bankLookupStatus === 'success' && (
+                    <p className="text-xs text-green-600">✓ Bank verified and auto-filled</p>
                   )}
                 </div>
                 <div className="space-y-2">
