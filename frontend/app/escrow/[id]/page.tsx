@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import {
   ArrowLeft,
@@ -108,13 +108,19 @@ interface EscrowData {
   }>;
 }
 
-const statusConfig = {
+const statusConfig: Record<string, { label: string; color: string; icon: React.ElementType }> = {
   CREATED: { label: 'Awaiting Funds', color: 'bg-amber-100 text-amber-700', icon: Clock },
+  DEPOSIT_PENDING: { label: 'Deposit Pending', color: 'bg-orange-100 text-orange-700', icon: Clock },
   FUNDS_RECEIVED: { label: 'Funds Received', color: 'bg-blue-100 text-blue-700', icon: CheckCircle2 },
   READY_TO_CLOSE: { label: 'Ready to Close', color: 'bg-emerald-100 text-emerald-700', icon: CheckCircle2 },
   CLOSING: { label: 'Closing...', color: 'bg-purple-100 text-purple-700', icon: RefreshCw },
   CLOSED: { label: 'Closed', color: 'bg-slate-100 text-slate-700', icon: CheckCircle2 },
   CANCELLED: { label: 'Cancelled', color: 'bg-red-100 text-red-700', icon: AlertTriangle },
+};
+
+// Fallback for any unknown status
+const getStatusConfig = (status: string) => {
+  return statusConfig[status] || { label: status, color: 'bg-gray-100 text-gray-700', icon: AlertTriangle };
 };
 
 // ============================================================
@@ -280,7 +286,7 @@ export default function EscrowDetailPage() {
     );
   }
 
-  const status = statusConfig[escrow.status];
+  const status = getStatusConfig(escrow.status);
   const StatusIcon = status.icon;
   const canClose = escrow.status === 'FUNDS_RECEIVED' && escrow.payees.length > 0;
 
