@@ -22,7 +22,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 
-type EscrowStatus = 'CREATED' | 'FUNDS_RECEIVED' | 'READY_TO_CLOSE' | 'CLOSED' | 'CANCELLED';
+type EscrowStatus = 'CREATED' | 'DEPOSIT_PENDING' | 'FUNDS_RECEIVED' | 'READY_TO_CLOSE' | 'CLOSING' | 'CLOSED' | 'CANCELLED';
 
 interface Escrow {
   id: string;
@@ -35,12 +35,19 @@ interface Escrow {
   payeeCount: number;
 }
 
-const statusConfig: Record<EscrowStatus, { label: string; color: string; icon: React.ElementType }> = {
+const statusConfig: Record<string, { label: string; color: string; icon: React.ElementType }> = {
   CREATED: { label: 'Awaiting Funds', color: 'bg-yellow-100 text-yellow-800', icon: Clock },
+  DEPOSIT_PENDING: { label: 'Deposit Pending', color: 'bg-orange-100 text-orange-800', icon: Clock },
   FUNDS_RECEIVED: { label: 'Funded', color: 'bg-green-100 text-green-800', icon: CheckCircle2 },
   READY_TO_CLOSE: { label: 'Ready to Close', color: 'bg-blue-100 text-blue-800', icon: AlertCircle },
+  CLOSING: { label: 'Closing...', color: 'bg-purple-100 text-purple-800', icon: Clock },
   CLOSED: { label: 'Closed', color: 'bg-gray-100 text-gray-800', icon: CheckCircle2 },
   CANCELLED: { label: 'Cancelled', color: 'bg-red-100 text-red-800', icon: XCircle },
+};
+
+// Fallback for any unknown status
+const getStatusConfig = (status: string) => {
+  return statusConfig[status] || { label: status, color: 'bg-gray-100 text-gray-800', icon: AlertCircle };
 };
 
 export default function HomePage() {
@@ -343,7 +350,8 @@ export default function HomePage() {
           ) : (
             <div className="divide-y">
               {filteredEscrows.map((escrow) => {
-                const StatusIcon = statusConfig[escrow.status].icon;
+                const config = getStatusConfig(escrow.status);
+                const StatusIcon = config.icon;
                 return (
                   <Link 
                     key={escrow.id} 
@@ -372,9 +380,9 @@ export default function HomePage() {
                           </div>
                         </div>
                       </div>
-                      <Badge className={statusConfig[escrow.status].color}>
+                      <Badge className={config.color}>
                         <StatusIcon className="h-3.5 w-3.5 mr-1" />
-                        {statusConfig[escrow.status].label}
+                        {config.label}
                       </Badge>
                     </div>
                   </Link>
