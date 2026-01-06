@@ -185,12 +185,22 @@ export async function POST(request: NextRequest) {
 }
 
 // ============================================================
-// GET /api/escrow/create - Not used
+// GET /api/escrow/create - Debug info
 // ============================================================
 
 export async function GET(request: NextRequest) {
+  const apiKey = process.env.BRIDGE_API_KEY;
+  const useMockEnv = process.env.BRIDGE_USE_MOCK;
+  
   return NextResponse.json({
     message: 'Use POST to create an escrow',
-    testMode: process.env.BRIDGE_USE_MOCK === 'true',
+    debug: {
+      hasApiKey: !!apiKey,
+      apiKeyPrefix: apiKey ? apiKey.substring(0, 10) + '...' : 'NOT SET',
+      bridgeUseMockValue: useMockEnv,
+      bridgeUseMockType: typeof useMockEnv,
+      willUseMock: useMockEnv === 'true' || !apiKey,
+      bridgeApiUrl: process.env.BRIDGE_API_URL || 'NOT SET',
+    },
   });
 }
