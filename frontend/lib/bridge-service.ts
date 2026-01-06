@@ -498,19 +498,18 @@ export async function handleBridgeWebhook(
 // ============ Factory Function ============
 
 export function createBridgeService(): BridgeService {
+  // Fallback customer ID for sandbox testing
+  const SANDBOX_CUSTOMER_ID = '07c667aa-4d2d-41eb-96ec-e776342c5326';
+  
   const config: BridgeConfig = {
     apiKey: process.env.BRIDGE_API_KEY || '',
-    baseUrl: process.env.BRIDGE_API_URL || 'https://api.bridge.xyz',
+    baseUrl: process.env.BRIDGE_API_URL || 'https://api.sandbox.bridge.xyz',
     webhookPublicKey: process.env.BRIDGE_WEBHOOK_PUBLIC_KEY || '',
-    customerId: process.env.BRIDGE_CUSTOMER_ID || '',
+    customerId: process.env.BRIDGE_CUSTOMER_ID || SANDBOX_CUSTOMER_ID,
   };
 
   if (!config.apiKey) {
     throw new Error('Bridge API key not configured');
-  }
-
-  if (!config.customerId) {
-    throw new Error('Bridge customer ID not configured');
   }
 
   return new BridgeService(config);
