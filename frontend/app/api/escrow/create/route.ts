@@ -190,17 +190,13 @@ export async function POST(request: NextRequest) {
 
 export async function GET(request: NextRequest) {
   const apiKey = process.env.BRIDGE_API_KEY;
-  const useMockEnv = process.env.BRIDGE_USE_MOCK;
-  // Use real Bridge if API key exists and mock is not explicitly "true"
-  const willUseReal = apiKey && useMockEnv !== 'true';
   
   return NextResponse.json({
     message: 'Use POST to create an escrow',
     debug: {
       hasApiKey: !!apiKey,
       apiKeyPrefix: apiKey ? apiKey.substring(0, 10) + '...' : 'NOT SET',
-      bridgeUseMockValue: useMockEnv ?? 'NOT SET',
-      willUseRealBridge: willUseReal,
+      willUseRealBridge: !!apiKey,
       bridgeApiUrl: process.env.BRIDGE_API_URL || 'NOT SET',
     },
   });

@@ -364,20 +364,17 @@ export function createMockBridgeService(options?: { simulateDelay?: boolean }): 
 
 export function createBridgeServiceAuto(): BridgeService | MockBridgeService {
   const apiKey = process.env.BRIDGE_API_KEY;
-  const useMockEnv = process.env.BRIDGE_USE_MOCK;
   
-  // Use real Bridge if API key exists and mock is not explicitly "true"
-  // Default to real mode when API key is present
-  const shouldUseReal = apiKey && useMockEnv !== 'true';
-
-  if (shouldUseReal) {
+  // Use real Bridge API if API key is present
+  // Only use mock if no API key is configured
+  if (apiKey) {
     console.log('[Bridge] Using REAL Bridge API - sandbox mode');
     const { createBridgeService } = require('./bridge-service');
     return createBridgeService();
   }
 
-  // Fall back to mock mode
-  console.log('[Bridge] Using MOCK mode - no real money movement');
+  // Fall back to mock mode only when no API key
+  console.log('[Bridge] Using MOCK mode - no API key configured');
   return createMockBridgeService();
 }
 
