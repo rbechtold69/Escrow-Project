@@ -23,7 +23,7 @@ export default $config({
         DATABASE_URL: databaseUrl.value,
         BRIDGE_API_KEY: bridgeApiKey.value,
         BRIDGE_API_SECRET: bridgeApiSecret.value,
-        BRIDGE_USE_MOCK: process.env.BRIDGE_USE_MOCK || "true",
+        BRIDGE_USE_MOCK: process.env.BRIDGE_USE_MOCK || "false",
       },
     });
   },
