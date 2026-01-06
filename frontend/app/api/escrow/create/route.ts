@@ -185,22 +185,12 @@ export async function POST(request: NextRequest) {
 }
 
 // ============================================================
-// GET /api/escrow/create - Debug info
+// GET /api/escrow/create - Info
 // ============================================================
 
 export async function GET(request: NextRequest) {
-  const apiKey = process.env.BRIDGE_API_KEY;
-  const customerId = process.env.BRIDGE_CUSTOMER_ID;
-  
   return NextResponse.json({
     message: 'Use POST to create an escrow',
-    debug: {
-      hasApiKey: !!apiKey,
-      apiKeyPrefix: apiKey ? apiKey.substring(0, 10) + '...' : 'NOT SET',
-      hasCustomerId: !!customerId,
-      customerIdPrefix: customerId ? customerId.substring(0, 8) + '...' : 'NOT SET',
-      willUseRealBridge: !!apiKey,
-      bridgeApiUrl: process.env.BRIDGE_API_URL || 'NOT SET',
-    },
+    status: 'ready',
   });
 }
