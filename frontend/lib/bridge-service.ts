@@ -14,9 +14,8 @@ import crypto from 'crypto';
 
 export interface BridgeConfig {
   apiKey: string;
-  apiSecret: string;
   baseUrl: string;
-  webhookSecret: string;
+  webhookPublicKey?: string;
 }
 
 export interface VirtualAccount {
@@ -89,23 +88,10 @@ export class BridgeService {
   // ============ Authentication ============
 
   private getAuthHeaders(): Record<string, string> {
-    const timestamp = Math.floor(Date.now() / 1000).toString();
-    const signature = this.generateSignature(timestamp);
-
     return {
       'Content-Type': 'application/json',
       'Api-Key': this.config.apiKey,
-      'Api-Timestamp': timestamp,
-      'Api-Signature': signature,
     };
-  }
-
-  private generateSignature(timestamp: string): string {
-    const payload = `${timestamp}${this.config.apiKey}`;
-    return crypto
-      .createHmac('sha256', this.config.apiSecret)
-      .update(payload)
-      .digest('hex');
   }
 
   // ============ Virtual Accounts ============
@@ -403,22 +389,42 @@ export class BridgeService {
   // ============ Webhooks ============
 
   /**
-   * Verify webhook signature
+   * Verify webhook signature using RSA public key
+   * Bridge uses X-Webhook-Signature header with format: t=<timestamp>,v0=<signature>
    */
   verifyWebhookSignature(
     payload: string,
-    signature: string,
-    timestamp: string
+    signatureHeader: string
   ): boolean {
-    const expectedSignature = crypto
-      .createHmac('sha256', this.config.webhookSecret)
-      .update(`${timestamp}.${payload}`)
-      .digest('hex');
+    if (!this.config.webhookPublicKey) {
+      console.warn('Webhook public key not configured');
+      return false;
+    }
 
-    return crypto.timingSafeEqual(
-      Buffer.from(signature),
-      Buffer.from(expectedSignature)
-    );
+    try {
+      const parts = signatureHeader.split(',');
+      const timestamp = parts.find(p => p.startsWith('t='))?.split('=')[1];
+      const signature = parts.find(p => p.startsWith('v0='))?.split('=')[1];
+
+      if (!timestamp || !signature) return false;
+
+      const signedPayload = `${timestamp}.${payload}`;
+      const hash = crypto.createHash('sha256').update(signedPayload).digest();
+      const signatureBytes = Buffer.from(signature, 'base64');
+
+      return crypto.verify(
+        'sha256',
+        hash,
+        {
+          key: this.config.webhookPublicKey,
+          padding: crypto.constants.RSA_PKCS1_PADDING,
+        },
+        signatureBytes
+      );
+    } catch (error) {
+      console.error('Webhook signature verification failed:', error);
+      return false;
+    }
   }
 
   /**
@@ -477,13 +483,12 @@ export async function handleBridgeWebhook(
 export function createBridgeService(): BridgeService {
   const config: BridgeConfig = {
     apiKey: process.env.BRIDGE_API_KEY || '',
-    apiSecret: process.env.BRIDGE_API_SECRET || '',
     baseUrl: process.env.BRIDGE_API_URL || 'https://api.bridge.xyz',
-    webhookSecret: process.env.BRIDGE_WEBHOOK_SECRET || '',
+    webhookPublicKey: process.env.BRIDGE_WEBHOOK_PUBLIC_KEY || '',
   };
 
-  if (!config.apiKey || !config.apiSecret) {
-    throw new Error('Bridge API credentials not configured');
+  if (!config.apiKey) {
+    throw new Error('Bridge API key not configured');
   }
 
   return new BridgeService(config);

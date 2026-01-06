@@ -364,17 +364,16 @@ export function createMockBridgeService(options?: { simulateDelay?: boolean }): 
 
 export function createBridgeServiceAuto(): BridgeService | MockBridgeService {
   const apiKey = process.env.BRIDGE_API_KEY;
-  const apiSecret = process.env.BRIDGE_API_SECRET;
   const useMock = process.env.BRIDGE_USE_MOCK === 'true';
 
-  // Use mock if explicitly enabled or if credentials are missing
-  if (useMock || !apiKey || !apiSecret) {
+  // Use mock if explicitly enabled or if API key is missing
+  if (useMock || !apiKey) {
     console.log('[Bridge] Using MOCK mode - no real money movement');
     return createMockBridgeService();
   }
 
   // Use real Bridge service
-  console.log('[Bridge] Using PRODUCTION mode - real money movement enabled');
+  console.log('[Bridge] Using REAL Bridge API - sandbox mode');
   const { createBridgeService } = require('./bridge-service');
   return createBridgeService();
 }
