@@ -16,6 +16,7 @@ export interface BridgeConfig {
   apiKey: string;
   baseUrl: string;
   webhookPublicKey?: string;
+  customerId?: string;
 }
 
 export interface VirtualAccount {
@@ -103,39 +104,55 @@ export class BridgeService {
   async createVirtualAccount(
     request: CreateVirtualAccountRequest
   ): Promise<VirtualAccount> {
-    const response = await fetch(`${this.config.baseUrl}/v0/customers/virtual_accounts`, {
-      method: 'POST',
-      headers: this.getAuthHeaders(),
-      body: JSON.stringify({
-        source_currency: 'usd',
-        destination_currency: 'usdc',
-        destination_chain: 'base',
-        beneficiary_name: `EscrowBase FBO ${request.buyerName}`,
-        external_id: request.escrowId,
-        metadata: {
-          escrow_id: request.escrowId,
-          property_address: request.propertyAddress,
-          buyer_email: request.buyerEmail,
-          expected_amount: request.expectedAmount.toString(),
+    const customerId = this.config.customerId;
+    if (!customerId) {
+      throw new Error('Bridge customer ID not configured');
+    }
+
+    // Generate unique idempotency key for this request
+    const idempotencyKey = `escrow-${request.escrowId}-${Date.now()}`;
+    
+    // Use a placeholder destination address (in production, use the actual Safe/vault address)
+    const destinationAddress = '0x742d35Cc6634C0532925a3b844Bc9e7595f5bB91';
+
+    const response = await fetch(
+      `${this.config.baseUrl}/v0/customers/${customerId}/virtual_accounts`,
+      {
+        method: 'POST',
+        headers: {
+          ...this.getAuthHeaders(),
+          'Idempotency-Key': idempotencyKey,
         },
-      }),
-    });
+        body: JSON.stringify({
+          source: {
+            currency: 'usd',
+            payment_rail: 'wire',
+          },
+          destination: {
+            currency: 'usdc',
+            payment_rail: 'base',
+            address: destinationAddress,
+          },
+        }),
+      }
+    );
 
     if (!response.ok) {
       const error = await response.json();
-      throw new Error(`Bridge API error: ${error.message || response.statusText}`);
+      throw new Error(`Bridge API error: ${error.message || error.code || response.statusText}`);
     }
 
     const data = await response.json();
+    const depositInstructions = data.source_deposit_instructions;
 
     return {
       id: data.id,
-      account_number: data.account_number,
-      routing_number: data.routing_number,
-      bank_name: data.bank_name || 'Bridge Trust Bank',
-      beneficiary_name: data.beneficiary_name,
-      beneficiary_address: data.beneficiary_address || '',
-      status: data.status,
+      account_number: depositInstructions.bank_account_number,
+      routing_number: depositInstructions.bank_routing_number,
+      bank_name: depositInstructions.bank_name || 'Bridge Bank',
+      beneficiary_name: depositInstructions.bank_beneficiary_name || `FBO ${request.buyerName}`,
+      beneficiary_address: depositInstructions.bank_beneficiary_address || depositInstructions.bank_address || '',
+      status: data.status === 'activated' ? 'active' : data.status,
       created_at: data.created_at,
     };
   }
@@ -485,10 +502,15 @@ export function createBridgeService(): BridgeService {
     apiKey: process.env.BRIDGE_API_KEY || '',
     baseUrl: process.env.BRIDGE_API_URL || 'https://api.bridge.xyz',
     webhookPublicKey: process.env.BRIDGE_WEBHOOK_PUBLIC_KEY || '',
+    customerId: process.env.BRIDGE_CUSTOMER_ID || '',
   };
 
   if (!config.apiKey) {
     throw new Error('Bridge API key not configured');
+  }
+
+  if (!config.customerId) {
+    throw new Error('Bridge customer ID not configured');
   }
 
   return new BridgeService(config);
