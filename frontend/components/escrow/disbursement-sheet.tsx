@@ -179,6 +179,7 @@ export function DisbursementSheet({
 }: DisbursementSheetProps) {
   const [isAddingPayee, setIsAddingPayee] = useState(false);
   const [expandedPayee, setExpandedPayee] = useState<string | null>(null);
+  const [editingPayeeId, setEditingPayeeId] = useState<string | null>(null);
 
   // Calculate totals
   const totalDisbursements = payees.reduce((sum, payee) => {
@@ -292,9 +293,16 @@ export function DisbursementSheet({
                 payee={payee}
                 purchasePrice={purchasePrice}
                 isExpanded={expandedPayee === payee.id}
+                isEditing={editingPayeeId === payee.id}
                 onToggle={() => setExpandedPayee(
                   expandedPayee === payee.id ? null : payee.id
                 )}
+                onEdit={() => setEditingPayeeId(payee.id)}
+                onCancelEdit={() => setEditingPayeeId(null)}
+                onSaveEdit={async (data) => {
+                  await onUpdatePayee(payee.id, data);
+                  setEditingPayeeId(null);
+                }}
                 onRemove={() => onRemovePayee(payee.id)}
                 canEdit={canEdit}
                 formatCurrency={formatCurrency}
@@ -315,7 +323,11 @@ interface PayeeCardProps {
   payee: Payee;
   purchasePrice: number;
   isExpanded: boolean;
+  isEditing: boolean;
   onToggle: () => void;
+  onEdit: () => void;
+  onCancelEdit: () => void;
+  onSaveEdit: (data: { amount?: number; basisPoints?: number }) => Promise<void>;
   onRemove: () => void;
   canEdit: boolean;
   formatCurrency: (amount: number) => string;
@@ -325,11 +337,22 @@ function PayeeCard({
   payee,
   purchasePrice,
   isExpanded,
+  isEditing,
   onToggle,
+  onEdit,
+  onCancelEdit,
+  onSaveEdit,
   onRemove,
   canEdit,
   formatCurrency,
 }: PayeeCardProps) {
+  const [editAmount, setEditAmount] = useState<string>(
+    payee.amount?.toString() || ''
+  );
+  const [editBasisPoints, setEditBasisPoints] = useState<string>(
+    payee.basisPoints ? (payee.basisPoints / 100).toFixed(2) : ''
+  );
+  const [isSaving, setIsSaving] = useState(false);
   const amount = payee.usePercentage && payee.basisPoints
     ? (purchasePrice * payee.basisPoints) / 10000
     : payee.amount || 0;
@@ -435,10 +458,82 @@ function PayeeCard({
               )}
             </div>
 
+            {/* Edit Form */}
+            {isEditing && (
+              <div className="mt-4 pt-4 border-t space-y-4">
+                <p className="text-sm font-medium text-slate-700">Edit Payment Amount</p>
+                <div className="grid grid-cols-2 gap-4">
+                  {payee.usePercentage ? (
+                    <div className="space-y-1">
+                      <label className="text-xs text-slate-500">Percentage (%)</label>
+                      <div className="relative">
+                        <input
+                          type="number"
+                          step="0.01"
+                          value={editBasisPoints}
+                          onChange={(e) => setEditBasisPoints(e.target.value)}
+                          className="w-full px-3 py-2 border rounded-md text-sm"
+                          placeholder="3.00"
+                        />
+                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">%</span>
+                      </div>
+                      <p className="text-xs text-slate-500">
+                        = {formatCurrency(purchasePrice * (parseFloat(editBasisPoints) || 0) / 100)}
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="space-y-1">
+                      <label className="text-xs text-slate-500">Amount (USD)</label>
+                      <div className="relative">
+                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">$</span>
+                        <input
+                          type="number"
+                          step="0.01"
+                          value={editAmount}
+                          onChange={(e) => setEditAmount(e.target.value)}
+                          className="w-full pl-7 pr-3 py-2 border rounded-md text-sm"
+                          placeholder="10000.00"
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
+                <div className="flex justify-end gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={onCancelEdit}
+                    disabled={isSaving}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    size="sm"
+                    className="bg-emerald-600 hover:bg-emerald-700"
+                    disabled={isSaving}
+                    onClick={async () => {
+                      setIsSaving(true);
+                      try {
+                        if (payee.usePercentage) {
+                          await onSaveEdit({ basisPoints: Math.round(parseFloat(editBasisPoints) * 100) });
+                        } else {
+                          await onSaveEdit({ amount: parseFloat(editAmount) });
+                        }
+                      } finally {
+                        setIsSaving(false);
+                      }
+                    }}
+                  >
+                    {isSaving ? 'Saving...' : 'Save Changes'}
+                  </Button>
+                </div>
+              </div>
+            )}
+
             {/* Actions */}
-            {canEdit && payee.status === 'PENDING' && (
+            {canEdit && payee.status === 'PENDING' && !isEditing && (
               <div className="flex justify-end gap-2 mt-4 pt-4 border-t">
-                <Button variant="outline" size="sm">
+                <Button variant="outline" size="sm" onClick={onEdit}>
                   <Edit className="h-3 w-3 mr-1" />
                   Edit
                 </Button>
