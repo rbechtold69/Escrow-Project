@@ -176,7 +176,7 @@ export class BridgeClient {
       throw new Error(errorMessage);
     }
 
-    return responseText ? JSON.parse(responseText) : {};
+    return responseText ? JSON.parse(responseText) : ({} as T);
   }
 
   // ════════════════════════════════════════════════════════════════════════
