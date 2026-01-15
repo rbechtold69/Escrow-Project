@@ -93,12 +93,29 @@ model Escrow {
   buyerEmail      String
   
   // ══════════════════════════════════════════════════════════════════════════
-  // BRIDGE.XYZ TOKENIZED REFERENCE
+  // BRIDGE.XYZ TOKENIZED REFERENCES (Compliant Architecture)
   // ══════════════════════════════════════════════════════════════════════════
-  // This is the ONLY banking reference we store.
-  // It's a token that points to a virtual account in Bridge's secure vault.
-  // We CANNOT retrieve the actual bank details from this ID.
+  // 
+  // NON-COMMINGLING COMPLIANCE:
+  // Each escrow gets its own segregated custodial wallet via Bridge's 
+  // Wallet-as-a-Service. Funds for "Deal A" never touch "Deal B".
+  //
+  // NO MONEY TRANSMISSION:
+  // We NEVER hold private keys. Bridge is the Qualified Custodian.
+  // All funds are held in Bridge-controlled custodial wallets.
+  //
   // ══════════════════════════════════════════════════════════════════════════
+  
+  // Bridge Customer ID (represents the Buyer for KYC purposes)
+  bridgeCustomerId        String?
+  
+  // Segregated Custodial Wallet ID (unique per deal - NON-COMMINGLING)
+  bridgeWalletId          String?
+  
+  // On-chain wallet address (for the segregated wallet)
+  bridgeWalletAddress     String?
+  
+  // Virtual Account ID (for receiving wire/ACH deposits)
   bridgeVirtualAccountId  String?
   
   // On-chain references (public blockchain data, not sensitive)

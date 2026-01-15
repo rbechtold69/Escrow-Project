@@ -1,12 +1,29 @@
+/**
+ * ============================================================================
+ * API ROUTE: /api/escrow/create
+ * ============================================================================
+ * 
+ * Creates a new escrow with:
+ * 1. Bridge.xyz custodial wallet (segregated per escrow)
+ * 2. Bridge.xyz virtual account (wire/ACH deposit instructions)
+ * 3. Database record with all Bridge references
+ * 
+ * COMPLIANCE:
+ * ✅ Non-Commingling: Each escrow gets its own wallet
+ * ✅ No Money Transmission: Bridge is the custodian
+ * ✅ Audit Trail: All Bridge IDs stored for tracking
+ * 
+ * ============================================================================
+ */
+
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { createBridgeServiceAuto } from '@/lib/bridge-mock';
+import { getBridgeClient, formatWiringInstructions } from '@/lib/bridge-client';
 import { z } from 'zod';
 
-// ============================================================
-// POST /api/escrow/create
-// Creates a new escrow with database persistence and mock Bridge integration
-// ============================================================
+// ============================================================================
+// INPUT VALIDATION
+// ============================================================================
 
 const CreateEscrowSchema = z.object({
   propertyAddress: z.string().min(1, 'Property address is required'),
@@ -20,9 +37,16 @@ const CreateEscrowSchema = z.object({
   officerAddress: z.string().optional(),
 });
 
+// ============================================================================
+// POST: Create a new escrow
+// ============================================================================
+
 export async function POST(request: NextRequest) {
   try {
-    // 1. Parse and validate request body
+    // ════════════════════════════════════════════════════════════════════════
+    // STEP 1: Parse and validate request body
+    // ════════════════════════════════════════════════════════════════════════
+    
     const body = await request.json();
     const validatedData = CreateEscrowSchema.parse(body);
 
@@ -38,22 +62,31 @@ export async function POST(request: NextRequest) {
       if (parts.length >= 3) {
         propertyAddress = parts[0];
         city = parts[1];
-        // Parse "CA 90210" format
         const stateZip = parts[2].trim().split(' ');
         state = stateZip[0] || '';
         zipCode = stateZip[1] || '';
       }
     }
 
-    // Convert price from USDC decimals back to dollars
-    const priceInDollars = validatedData.purchasePrice / 1_000_000;
+    // Convert price from USDC decimals back to dollars (if needed)
+    const priceInDollars = validatedData.purchasePrice > 1000000 
+      ? validatedData.purchasePrice / 1_000_000 
+      : validatedData.purchasePrice;
 
-    // 2. Generate escrow ID
+    // ════════════════════════════════════════════════════════════════════════
+    // STEP 2: Generate escrow ID
+    // ════════════════════════════════════════════════════════════════════════
+    
     const year = new Date().getFullYear();
     const randomNum = Math.floor(100000 + Math.random() * 900000);
     const escrowId = `ESC-${year}-${randomNum}`;
 
-    // 3. Get or create the user (escrow officer)
+    console.log(`[Escrow] Creating escrow: ${escrowId}`);
+
+    // ════════════════════════════════════════════════════════════════════════
+    // STEP 3: Get or create the user (escrow officer)
+    // ════════════════════════════════════════════════════════════════════════
+    
     let user = null;
     if (validatedData.officerAddress) {
       user = await prisma.user.upsert({
@@ -66,7 +99,6 @@ export async function POST(request: NextRequest) {
         },
       });
     } else {
-      // Create a default system user for testing
       user = await prisma.user.upsert({
         where: { walletAddress: '0x0000000000000000000000000000000000000000' },
         update: {},
@@ -78,21 +110,51 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // 4. Create virtual bank account via Bridge (mock)
-    const bridgeService = createBridgeServiceAuto();
-    const virtualAccount = await bridgeService.createVirtualAccount({
-      escrowId,
-      propertyAddress: `${propertyAddress}, ${city}, ${state} ${zipCode}`,
-      buyerName: `${validatedData.buyerFirstName} ${validatedData.buyerLastName}`,
-      buyerEmail: validatedData.buyerEmail || 'pending@example.com',
-      expectedAmount: priceInDollars,
-    });
+    // ════════════════════════════════════════════════════════════════════════
+    // STEP 4: Create Bridge.xyz wallet and virtual account
+    // ════════════════════════════════════════════════════════════════════════
+    
+    let bridgeWallet = null;
+    let bridgeVirtualAccount = null;
+    let wiringInstructions = null;
 
-    // 5. Generate mock contract addresses (in production, these would be real deployments)
-    const mockSafeAddress = `0x${Array(40).fill(0).map(() => Math.floor(Math.random() * 16).toString(16)).join('')}`;
-    const mockVaultAddress = `0x${Array(40).fill(0).map(() => Math.floor(Math.random() * 16).toString(16)).join('')}`;
+    try {
+      const bridge = getBridgeClient();
 
-    // 6. Create escrow in database
+      // 4a. Create a segregated custodial wallet for this escrow
+      console.log(`[Escrow] Creating Bridge wallet for ${escrowId}...`);
+      bridgeWallet = await bridge.createWallet(escrowId, 'base');
+      console.log(`[Escrow] ✅ Wallet created: ${bridgeWallet.id}`);
+
+      // 4b. Create a virtual account that deposits to this wallet
+      console.log(`[Escrow] Creating Bridge virtual account for ${escrowId}...`);
+      bridgeVirtualAccount = await bridge.createVirtualAccount(escrowId, bridgeWallet.id);
+      console.log(`[Escrow] ✅ Virtual account created: ${bridgeVirtualAccount.id}`);
+
+      // 4c. Extract wiring instructions
+      wiringInstructions = formatWiringInstructions(bridgeVirtualAccount);
+
+    } catch (bridgeError: any) {
+      console.error(`[Escrow] Bridge API error:`, bridgeError.message);
+      
+      // Fall back to mock data for demo purposes
+      console.log(`[Escrow] Falling back to mock wiring instructions`);
+      wiringInstructions = {
+        bankName: 'Lead Bank (Demo Mode)',
+        bankAddress: '1801 Main St., Kansas City, MO 64108',
+        routingNumber: '101019644',
+        accountNumber: `DEMO-${escrowId.replace('ESC-', '')}`,
+        beneficiaryName: `EscrowPayi FBO ${validatedData.buyerFirstName} ${validatedData.buyerLastName}`,
+        beneficiaryAddress: `${propertyAddress}, ${city}, ${state} ${zipCode}`,
+        reference: escrowId,
+        paymentMethods: ['ach_push', 'wire'],
+      };
+    }
+
+    // ════════════════════════════════════════════════════════════════════════
+    // STEP 5: Create escrow in database
+    // ════════════════════════════════════════════════════════════════════════
+    
     const escrow = await prisma.escrow.create({
       data: {
         escrowId,
@@ -101,18 +163,28 @@ export async function POST(request: NextRequest) {
         state: state,
         zipCode: zipCode,
         purchasePrice: priceInDollars,
-        buyerFirstName: validatedData.buyerFirstName || 'Pending',
-        buyerLastName: validatedData.buyerLastName || 'Buyer',
-        buyerEmail: validatedData.buyerEmail || 'pending@example.com',
-        bridgeVirtualAccountId: virtualAccount.id,
-        vaultAddress: mockVaultAddress,
-        safeAddress: mockSafeAddress,
+        buyerFirstName: validatedData.buyerFirstName,
+        buyerLastName: validatedData.buyerLastName,
+        buyerEmail: validatedData.buyerEmail,
+        
+        // Bridge.xyz references
+        bridgeWalletId: bridgeWallet?.id || null,
+        bridgeWalletAddress: bridgeWallet?.address || null,
+        bridgeVirtualAccountId: bridgeVirtualAccount?.id || null,
+        
+        // Legacy fields (keeping for backward compatibility)
+        vaultAddress: bridgeWallet?.address || null,
+        safeAddress: bridgeWallet?.address || null,
+        
         status: 'CREATED',
         createdById: user.id,
       },
     });
 
-    // 7. Create activity log
+    // ════════════════════════════════════════════════════════════════════════
+    // STEP 6: Create activity log
+    // ════════════════════════════════════════════════════════════════════════
+    
     await prisma.activityLog.create({
       data: {
         escrowId: escrow.id,
@@ -121,33 +193,19 @@ export async function POST(request: NextRequest) {
           escrowId: escrowId,
           propertyAddress: `${propertyAddress}, ${city}, ${state} ${zipCode}`,
           purchasePrice: priceInDollars,
+          bridgeWalletId: bridgeWallet?.id,
+          bridgeVirtualAccountId: bridgeVirtualAccount?.id,
         },
         actorWallet: validatedData.officerAddress || null,
       },
     });
 
-    // 8. Build wiring instructions from virtual account
-    const wiringInstructions = {
-      accountNumber: virtualAccount.account_number,
-      routingNumber: virtualAccount.routing_number,
-      bankName: virtualAccount.bank_name,
-      bankAddress: '123 Financial District, San Francisco, CA 94102',
-      beneficiaryName: virtualAccount.beneficiary_name,
-      beneficiaryAddress: `${propertyAddress}, ${city}, ${state} ${zipCode}`,
-      reference: escrowId,
-      swiftCode: 'CHASUS33',
-    };
+    // ════════════════════════════════════════════════════════════════════════
+    // STEP 7: Return success response
+    // ════════════════════════════════════════════════════════════════════════
+    
+    console.log(`[Escrow] ✅ Escrow created successfully: ${escrowId}`);
 
-    // 9. Log for debugging
-    console.log('[Escrow] Created escrow:', {
-      escrowId,
-      propertyAddress: `${propertyAddress}, ${city}, ${state} ${zipCode}`,
-      purchasePrice: `$${priceInDollars.toLocaleString()}`,
-      bridgeAccountId: virtualAccount.id,
-      dbId: escrow.id,
-    });
-
-    // 10. Return success response
     return NextResponse.json({
       success: true,
       escrowId: escrowId,
@@ -156,19 +214,35 @@ export async function POST(request: NextRequest) {
         escrowId: escrowId,
         propertyAddress: `${propertyAddress}, ${city}, ${state} ${zipCode}`,
         purchasePrice: priceInDollars,
-        safeAddress: mockSafeAddress,
-        vaultAddress: mockVaultAddress,
+        safeAddress: bridgeWallet?.address || escrow.safeAddress,
+        vaultAddress: bridgeWallet?.address || escrow.vaultAddress,
         status: 'CREATED',
         createdAt: escrow.createdAt.toISOString(),
       },
-      wiringInstructions,
-      message: process.env.BRIDGE_USE_MOCK === 'true' 
-        ? 'TEST MODE: Using mock Bridge service.' 
-        : 'Escrow created successfully.',
+      bridge: {
+        walletId: bridgeWallet?.id || null,
+        walletAddress: bridgeWallet?.address || null,
+        virtualAccountId: bridgeVirtualAccount?.id || null,
+        isLive: !!bridgeWallet,
+      },
+      wiringInstructions: {
+        accountNumber: wiringInstructions.accountNumber,
+        routingNumber: wiringInstructions.routingNumber,
+        bankName: wiringInstructions.bankName,
+        bankAddress: wiringInstructions.bankAddress,
+        beneficiaryName: wiringInstructions.beneficiaryName,
+        beneficiaryAddress: wiringInstructions.beneficiaryAddress,
+        reference: escrowId,
+        swiftCode: 'LEABOREA', // Lead Bank SWIFT code
+        paymentMethods: wiringInstructions.paymentMethods,
+      },
+      message: bridgeWallet 
+        ? 'Escrow created with live Bridge.xyz integration' 
+        : 'Escrow created in demo mode',
     });
 
   } catch (error: any) {
-    console.error('Create escrow error:', error);
+    console.error('[Escrow] Create error:', error);
     
     if (error instanceof z.ZodError) {
       return NextResponse.json(
@@ -184,13 +258,26 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// ============================================================
-// GET /api/escrow/create - Info
-// ============================================================
+// ============================================================================
+// GET: Info endpoint
+// ============================================================================
 
 export async function GET(request: NextRequest) {
   return NextResponse.json({
-    message: 'Use POST to create an escrow',
-    status: 'ready',
+    endpoint: '/api/escrow/create',
+    method: 'POST',
+    description: 'Create a new escrow with Bridge.xyz integration',
+    features: {
+      'Segregated Wallet': 'Each escrow gets its own Bridge wallet',
+      'Virtual Account': 'Wire/ACH deposit instructions generated',
+      'Auto-Conversion': 'USD deposits convert to USDC automatically',
+    },
+    requiredFields: {
+      propertyAddress: 'string',
+      purchasePrice: 'number (USD)',
+      buyerFirstName: 'string',
+      buyerLastName: 'string',
+      buyerEmail: 'string',
+    },
   });
 }

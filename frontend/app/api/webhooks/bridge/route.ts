@@ -1,15 +1,25 @@
 /**
- * Bridge.xyz Webhook Handler
+ * ============================================================================
+ * Bridge.xyz Webhook Handler (Compliant Architecture)
+ * ============================================================================
  * 
  * Handles incoming webhooks from Bridge:
- * - deposit.completed: Wire received, triggers USDC deposit to vault
- * - liquidation.completed: USDC converted to fiat for payouts
+ * - deposit.received: Wire initiated
+ * - deposit.completed: Funds settled and irreversible (GOOD FUNDS)
+ * - deposit.failed: Deposit failed
  * - transfer.completed/failed: Payout status updates
+ * 
+ * COMPLIANCE:
+ * ✅ Good Funds: Only marks FUNDS_SECURED after deposit.completed
+ * ✅ Non-Commingling: Verifies funds went to correct wallet
+ * ✅ Audit Trail: All events logged
+ * 
+ * ============================================================================
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { createBridgeService, handleBridgeWebhook, WebhookEvent } from '@/lib/bridge-service';
-import { depositToVault, getVaultAddress } from '@/lib/contract-client';
+import { handleBridgeWebhook, WebhookEvent } from '@/lib/bridge-service';
+import { handleDepositReceived, DepositWebhookEvent } from '@/lib/escrow-compliant';
 import { prisma } from '@/lib/prisma';
 import crypto from 'crypto';
 
@@ -95,109 +105,29 @@ export async function POST(request: NextRequest) {
     }
     
     // Parse event
-    const event: WebhookEvent = JSON.parse(payload);
-    console.log(`Received webhook: ${event.type}`, event.id);
+    const event = JSON.parse(payload);
+    console.log(`[WEBHOOK] Received: ${event.type}`, event.id);
     
-    // Handle different event types
-    await handleBridgeWebhook(event, {
-      // Wire transfer received - deposit USDC to vault
-      onDepositCompleted: async (event) => {
-        const { amount, virtual_account_id, metadata } = event.data;
-        const escrowId = metadata?.escrow_id;
-        
-        if (!escrowId) {
-          console.error('No escrow_id in deposit metadata');
-          return;
-        }
-        
-        console.log(`Deposit completed for escrow ${escrowId}: $${amount}`);
-        
-        // Get vault address
-        const vaultAddress = await getVaultAddress(escrowId);
-        if (!vaultAddress) {
-          console.error(`Vault not found for escrow ${escrowId}`);
-          return;
-        }
-        
-        // Convert amount to USDC (6 decimals)
-        const amountUSDC = BigInt(Math.floor(amount * 1e6));
-        
-        // Calculate minimum USDM output (allow 0.5% slippage)
-        // USDM is 18 decimals, rough 1:1 with USDC but convert decimals
-        const minUSDMOut = (amountUSDC * BigInt(995) * BigInt(1e12)) / BigInt(1000);
-        
-        try {
-          // Deposit to vault (swaps to USDM)
-          const txHash = await depositToVault(vaultAddress, amountUSDC, minUSDMOut);
-          
-          console.log(`Deposited to vault ${vaultAddress}: tx ${txHash}`);
-          
-          // Update database
-          await prisma.escrow.update({
-            where: { escrowId },
-            data: {
-              status: 'FUNDS_RECEIVED',
-              fundedAt: new Date(),
-              depositTxHash: txHash,
-              currentBalance: amount,
-            },
-          });
-          
-          // TODO: Send Pusher notification to frontend
-          // pusher.trigger(`escrow-${escrowId}`, 'deposit-received', { amount, txHash });
-          
-        } catch (error) {
-          console.error(`Failed to deposit to vault: ${error}`);
-          // Keep status as DEPOSIT_PENDING - error is logged but not stored
-        }
-      },
+    // ════════════════════════════════════════════════════════════════════════
+    // ROUTE EVENTS TO APPROPRIATE HANDLERS
+    // ════════════════════════════════════════════════════════════════════════
+    
+    // Handle deposit events with compliant handler
+    if (event.type?.startsWith('deposit.')) {
+      const result = await handleDepositReceived(event as DepositWebhookEvent);
+      if (!result.success) {
+        console.error(`[WEBHOOK] Deposit handling failed: ${result.error}`);
+      }
+    }
+    
+    // Handle transfer/payout events
+    else if (event.type === 'transfer.completed') {
+      const { amount, metadata } = event.data;
+      const payeeId = metadata?.payee_id;
+      const escrowId = metadata?.deal_id || metadata?.escrow_id;
       
-      // Deposit pending - wire initiated
-      onDepositPending: async (event) => {
-        const { amount, metadata } = event.data;
-        const escrowId = metadata?.escrow_id;
-        
-        if (!escrowId) return;
-        
-        console.log(`Deposit pending for escrow ${escrowId}: $${amount}`);
-        
-        await prisma.escrow.update({
-          where: { escrowId },
-          data: {
-            status: 'DEPOSIT_PENDING',
-          },
-        });
-      },
-      
-      // USDC liquidated to fiat - payout ready
-      onLiquidationCompleted: async (event) => {
-        const { amount, metadata } = event.data;
-        const payeeId = metadata?.payee_id;
-        const escrowId = metadata?.escrow_id;
-        
-        if (!payeeId || !escrowId) return;
-        
-        console.log(`Liquidation completed for payee ${payeeId}: $${amount}`);
-        
-        // The fiat transfer will be initiated automatically by Bridge
-        // Update payee status
-        await prisma.payee.update({
-          where: { id: payeeId },
-          data: {
-            status: 'PROCESSING',
-          },
-        });
-      },
-      
-      // Fiat transfer completed
-      onTransferCompleted: async (event) => {
-        const { amount, metadata } = event.data;
-        const payeeId = metadata?.payee_id;
-        const escrowId = metadata?.escrow_id;
-        
-        if (!payeeId || !escrowId) return;
-        
-        console.log(`Transfer completed for payee ${payeeId}: $${amount}`);
+      if (payeeId) {
+        console.log(`[WEBHOOK] Transfer completed for payee ${payeeId}: $${amount}`);
         
         await prisma.payee.update({
           where: { id: payeeId },
@@ -208,32 +138,35 @@ export async function POST(request: NextRequest) {
         });
         
         // Check if all payees are paid
-        const unpaidPayees = await prisma.payee.count({
-          where: {
-            escrowId,
-            status: { not: 'COMPLETED' },
-          },
-        });
-        
-        if (unpaidPayees === 0) {
-          await prisma.escrow.update({
+        if (escrowId) {
+          const escrow = await prisma.escrow.findUnique({
             where: { escrowId },
-            data: {
-              status: 'CLOSED',
-              closedAt: new Date(),
-            },
+            include: { payees: true },
           });
+          
+          if (escrow) {
+            const allPaid = escrow.payees.every(p => p.status === 'COMPLETED');
+            if (allPaid) {
+              await prisma.escrow.update({
+                where: { id: escrow.id },
+                data: {
+                  status: 'CLOSED',
+                  closedAt: new Date(),
+                },
+              });
+              console.log(`[WEBHOOK] ✅ Escrow ${escrowId} fully closed`);
+            }
+          }
         }
-      },
+      }
+    }
+    
+    else if (event.type === 'transfer.failed') {
+      const { metadata } = event.data;
+      const payeeId = metadata?.payee_id;
       
-      // Fiat transfer failed
-      onTransferFailed: async (event) => {
-        const { metadata } = event.data;
-        const payeeId = metadata?.payee_id;
-        
-        if (!payeeId) return;
-        
-        console.error(`Transfer failed for payee ${payeeId}`);
+      if (payeeId) {
+        console.error(`[WEBHOOK] ❌ Transfer failed for payee ${payeeId}`);
         
         await prisma.payee.update({
           where: { id: payeeId },
@@ -241,8 +174,13 @@ export async function POST(request: NextRequest) {
             status: 'FAILED',
           },
         });
-      },
-    });
+      }
+    }
+    
+    // Log unknown event types
+    else {
+      console.log(`[WEBHOOK] Unhandled event type: ${event.type}`);
+    }
     
     return NextResponse.json({ received: true });
     
