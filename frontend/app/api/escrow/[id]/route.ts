@@ -106,11 +106,17 @@ export async function GET(
       sellerName: 'Pending', // Would come from payees
       sellerEmail: '',
       createdAt: escrow.createdAt.toISOString(),
-      // Actual USDC balance from database
+      // Actual balance from database
       depositAmount: depositAmount,
       currentBalance: currentBalance,
+      initialDeposit: initialDeposit,
       depositReceivedAt: escrow.fundedAt?.toISOString(),
       closedAt: escrow.closedAt?.toISOString(),
+      // Yield/Interest tracking
+      yieldEnabled: escrow.yieldEnabled,
+      yieldEarned: escrow.yieldEarned ? Number(escrow.yieldEarned) : 0,
+      yieldReturnedTo: escrow.yieldReturnedTo || null,
+      // Other data
       wiringInstructions,
       payees: formattedPayees,
       pendingSignatures: [], // Would come from Safe service

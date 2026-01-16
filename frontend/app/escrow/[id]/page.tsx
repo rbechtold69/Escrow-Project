@@ -734,7 +734,7 @@ export default function EscrowDetailPage() {
             )}
 
             {/* Multisig Close Flow */}
-            {(canClose || escrow.status === 'CLOSING' || escrow.status === 'CLOSED') && (
+            {(canClose || escrow.status === 'CLOSING') && (
               <MultisigSigning
                 escrowId={escrow.id}
                 escrowNumber={escrow.escrowId}
@@ -748,6 +748,93 @@ export default function EscrowDetailPage() {
                 onExecute={handleExecute}
                 onRefresh={handleRefresh}
               />
+            )}
+
+            {/* Close Summary - Shows after escrow is closed */}
+            {escrow.status === 'CLOSED' && (
+              <Card className="border-green-200 bg-gradient-to-br from-green-50 to-emerald-50">
+                <CardHeader className="pb-3">
+                  <div className="flex items-center gap-2">
+                    <div className="p-2 bg-green-100 rounded-full">
+                      <CheckCircle2 className="h-5 w-5 text-green-600" />
+                    </div>
+                    <div>
+                      <CardTitle className="text-green-800">Escrow Closed Successfully</CardTitle>
+                      <p className="text-sm text-green-600">
+                        All funds have been disbursed • {escrow.closedAt ? new Date(escrow.closedAt).toLocaleDateString() : 'Today'}
+                      </p>
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {/* Payout Summary */}
+                  <div className="bg-white rounded-lg border border-green-200 divide-y divide-green-100">
+                    <div className="px-4 py-2 bg-green-100/50">
+                      <h4 className="text-sm font-medium text-green-800">Disbursement Summary</h4>
+                    </div>
+                    
+                    {/* Payees */}
+                    {escrow.payees.map((payee) => {
+                      const payeeAmount = payee.basisPoints 
+                        ? (escrow.purchasePrice * payee.basisPoints) / 10000
+                        : payee.amount || 0;
+                      return (
+                        <div key={payee.id} className="px-4 py-3 flex justify-between items-center">
+                          <div className="flex items-center gap-2">
+                            <CheckCircle2 className="h-4 w-4 text-green-500" />
+                            <div>
+                              <p className="text-sm font-medium">{payee.name}</p>
+                              <p className="text-xs text-gray-500">{payee.type.replace(/_/g, ' ')}</p>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <p className="font-medium">${payeeAmount.toLocaleString()}</p>
+                            <p className="text-xs text-gray-500">{payee.paymentMethod}</p>
+                          </div>
+                        </div>
+                      );
+                    })}
+                    
+                    {/* Interest Return to Buyer */}
+                    {escrow.yieldEarned && Number(escrow.yieldEarned) > 0 && (
+                      <div className="px-4 py-3 flex justify-between items-center bg-amber-50">
+                        <div className="flex items-center gap-2">
+                          <span className="text-lg">💰</span>
+                          <div>
+                            <p className="text-sm font-medium text-amber-800">
+                              {escrow.buyerName || 'Buyer'}
+                            </p>
+                            <p className="text-xs text-amber-600">Interest Earned (Returned to Depositor)</p>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <p className="font-medium text-amber-700">+${Number(escrow.yieldEarned).toLocaleString()}</p>
+                          <p className="text-xs text-amber-600">Auto-returned</p>
+                        </div>
+                      </div>
+                    )}
+                    
+                    {/* Total */}
+                    <div className="px-4 py-3 flex justify-between items-center bg-green-100/50">
+                      <p className="text-sm font-medium text-green-800">Total Disbursed</p>
+                      <p className="font-bold text-green-800">
+                        ${(totalToPayees + Number(escrow.yieldEarned || 0)).toLocaleString()}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Legal Compliance Note */}
+                  {escrow.yieldEarned && Number(escrow.yieldEarned) > 0 && (
+                    <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                      <p className="text-xs text-blue-700">
+                        <strong>⚖️ Legal Compliance:</strong> 100% of interest earned (${Number(escrow.yieldEarned).toLocaleString()}) 
+                        was automatically returned to {escrow.yieldReturnedTo || 'the buyer'} as legally required. 
+                        Neither EscrowPayi nor the Escrow Agent retained any interest.
+                      </p>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
             )}
           </div>
         </div>
