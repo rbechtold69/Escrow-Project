@@ -262,11 +262,21 @@ interface AddPayeeFormProps {
 // ============================================================
 
 const paymentMethodLabels: Record<PaymentMethod, string> = {
-  USDC: 'Instant Direct Transfer',
+  USDC: 'Instant Stablecoin Transfer',
   WIRE: 'Wire Transfer (1-2 days)',
   ACH: 'ACH Transfer (2-3 days)',
   CHECK: 'Physical Check (5-7 days)',
 };
+
+// Coming soon payment methods (not yet available)
+const comingSoonMethods = [
+  {
+    id: 'RTP',
+    label: 'Instant RTP Payments',
+    description: 'Real-Time Payments - Coming Spring 2026',
+    icon: '🚀',
+  },
+];
 
 // ============================================================
 // Main Component
@@ -671,20 +681,38 @@ export function AddPayeeForm({
                         {paymentMethodLabels[method]}
                       </SelectItem>
                     ))}
+                    {/* Separator */}
+                    <div className="my-1 border-t border-gray-200" />
+                    {/* Coming Soon Methods */}
+                    {comingSoonMethods.map((method) => (
+                      <div
+                        key={method.id}
+                        className="relative flex items-center px-2 py-2 text-sm text-gray-400 cursor-not-allowed"
+                      >
+                        <span className="mr-2">{method.icon}</span>
+                        <div>
+                          <span>{method.label}</span>
+                          <span className="ml-2 text-xs bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-full">
+                            Coming Soon
+                          </span>
+                          <p className="text-xs text-gray-400">{method.description}</p>
+                        </div>
+                      </div>
+                    ))}
                   </SelectContent>
                 </Select>
               )}
             />
           </div>
 
-          {/* Payment Details - Instant or Bank */}
+          {/* Payment Details - Stablecoin or Bank */}
           {selectedMethod === 'USDC' ? (
             <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
               <h4 className="font-medium text-blue-800 mb-3">
-                Instant Payment Address
+                Stablecoin Payment Address
               </h4>
               <p className="text-xs text-blue-600 mb-4">
-                ⚡ Funds will be sent directly to this address. Instant settlement with no fees.
+                ⚡ Funds will be sent directly to this address. Instant settlement, minimal fees.
               </p>
               <div className="space-y-2">
                 <Label htmlFor="walletAddress">Payment Address</Label>

@@ -144,7 +144,7 @@ const paymentMethodIcons: Record<string, React.ReactNode> = {
 };
 
 const paymentMethodLabels: Record<string, string> = {
-  USDC: 'Instant Direct',
+  USDC: 'Stablecoin',
   WIRE: 'Wire Transfer',
   ACH: 'ACH Transfer',
   CHECK: 'Physical Check',
