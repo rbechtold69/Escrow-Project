@@ -35,6 +35,8 @@ const CreateEscrowSchema = z.object({
   buyerLastName: z.string().min(1, 'Buyer last name is required'),
   buyerEmail: z.string().email('Valid buyer email is required'),
   officerAddress: z.string().optional(),
+  // Yield preference: true = USDB (earn yield), false = USDC (no yield)
+  yieldEnabled: z.boolean().optional().default(true),
 });
 
 // ============================================================================
@@ -127,8 +129,10 @@ export async function POST(request: NextRequest) {
       console.log(`[Escrow] ✅ Wallet created: ${bridgeWallet.id}`);
 
       // 4b. Create a virtual account that deposits to this wallet
-      console.log(`[Escrow] Creating Bridge virtual account for ${escrowId}...`);
-      bridgeVirtualAccount = await bridge.createVirtualAccount(escrowId, bridgeWallet.id);
+      // Buyer's preference: USDB (yield-earning) or USDC (no yield)
+      const yieldEnabled = validatedData.yieldEnabled !== false; // Default to true
+      console.log(`[Escrow] Creating Bridge virtual account for ${escrowId} (yield: ${yieldEnabled ? 'ON' : 'OFF'})...`);
+      bridgeVirtualAccount = await bridge.createVirtualAccount(escrowId, bridgeWallet.id, yieldEnabled);
       console.log(`[Escrow] ✅ Virtual account created: ${bridgeVirtualAccount.id}`);
 
       // 4c. Extract wiring instructions
@@ -155,6 +159,9 @@ export async function POST(request: NextRequest) {
     // STEP 5: Create escrow in database
     // ════════════════════════════════════════════════════════════════════════
     
+    // Store yield preference
+    const yieldEnabled = validatedData.yieldEnabled !== false;
+    
     const escrow = await prisma.escrow.create({
       data: {
         escrowId,
@@ -171,6 +178,9 @@ export async function POST(request: NextRequest) {
         bridgeWalletId: bridgeWallet?.id || null,
         bridgeWalletAddress: bridgeWallet?.address || null,
         bridgeVirtualAccountId: bridgeVirtualAccount?.id || null,
+        
+        // Yield preference (buyer's choice)
+        yieldEnabled: yieldEnabled,
         
         // Legacy fields (keeping for backward compatibility)
         vaultAddress: bridgeWallet?.address || null,
@@ -236,8 +246,16 @@ export async function POST(request: NextRequest) {
         swiftCode: 'LEABOREA', // Lead Bank SWIFT code
         paymentMethods: wiringInstructions.paymentMethods,
       },
+      // Yield settings
+      yield: {
+        enabled: yieldEnabled,
+        currency: yieldEnabled ? 'USDB' : 'USDC',
+        description: yieldEnabled 
+          ? 'Your funds will earn yield while in escrow. All yield will be returned to you at close.'
+          : 'Your funds will be held as USDC (no yield). This is a stable, non-earning option.',
+      },
       message: bridgeWallet 
-        ? 'Escrow created with live Bridge.xyz integration' 
+        ? `Escrow created with live Bridge.xyz integration (${yieldEnabled ? 'USDB - yield enabled' : 'USDC - no yield'})` 
         : 'Escrow created in demo mode',
     });
 

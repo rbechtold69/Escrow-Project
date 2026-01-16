@@ -130,7 +130,16 @@ model Escrow {
   currentBalance  Decimal?     @db.Decimal(18, 6)  // Current USDB balance (includes yield)
   
   // ══════════════════════════════════════════════════════════════════════════
-  // YIELD TRACKING (USDB earns yield while in escrow)
+  // YIELD SETTINGS
+  // ══════════════════════════════════════════════════════════════════════════
+  // Buyer can choose whether to earn yield on their escrowed funds.
+  // - yieldEnabled = true  → Use USDB (yield-earning stablecoin)
+  // - yieldEnabled = false → Use USDC (standard stablecoin, no yield)
+  // ══════════════════════════════════════════════════════════════════════════
+  yieldEnabled    Boolean      @default(true)  // true = USDB (yield), false = USDC (no yield)
+  
+  // ══════════════════════════════════════════════════════════════════════════
+  // YIELD TRACKING (Only applies if yieldEnabled = true)
   // ══════════════════════════════════════════════════════════════════════════
   // LEGAL REQUIREMENT: 100% of yield MUST go to the buyer (depositor).
   // Neither EscrowPayi nor the Escrow Agent can keep any yield.

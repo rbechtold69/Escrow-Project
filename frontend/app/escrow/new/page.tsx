@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAccount } from 'wagmi';
-import { ArrowLeft, Building2, Loader2, Copy, Download, CheckCircle2, Mail, User } from 'lucide-react';
+import { ArrowLeft, Building2, Loader2, Copy, Download, CheckCircle2, Mail, User, TrendingUp, Shield } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -42,6 +42,8 @@ export default function NewEscrowPage() {
     buyerFirstName: '',
     buyerLastName: '',
     buyerEmail: '',
+    // Yield Preference
+    yieldEnabled: true, // Default: ON (USDB)
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [wiringInstructions, setWiringInstructions] = useState<WiringInstructions | null>(null);
@@ -128,6 +130,7 @@ export default function NewEscrowPage() {
           buyerLastName: formData.buyerLastName,
           buyerEmail: formData.buyerEmail,
           officerAddress: address,
+          yieldEnabled: formData.yieldEnabled,
         }),
       });
       
@@ -418,6 +421,92 @@ export default function NewEscrowPage() {
             </CardContent>
           </Card>
 
+          {/* Yield Preference Card */}
+          <Card className="border-2 border-dashed">
+            <CardHeader className="pb-3">
+              <CardTitle className="flex items-center gap-2 text-lg">
+                <TrendingUp className="h-5 w-5" />
+                Buyer's Yield Preference
+              </CardTitle>
+              <CardDescription>
+                Allow the buyer to earn interest while funds are held in escrow
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {/* Toggle Switch */}
+              <div className="flex items-center justify-between p-4 rounded-lg bg-gray-50">
+                <div className="flex items-center gap-3">
+                  <div className={`p-2 rounded-full ${formData.yieldEnabled ? 'bg-green-100' : 'bg-gray-200'}`}>
+                    {formData.yieldEnabled ? (
+                      <TrendingUp className="h-5 w-5 text-green-600" />
+                    ) : (
+                      <Shield className="h-5 w-5 text-gray-500" />
+                    )}
+                  </div>
+                  <div>
+                    <p className="font-medium text-gray-900">
+                      {formData.yieldEnabled ? 'Earn Yield (USDB)' : 'Standard Hold (USDC)'}
+                    </p>
+                    <p className="text-sm text-gray-500">
+                      {formData.yieldEnabled 
+                        ? 'Funds earn ~4-5% APY while in escrow' 
+                        : 'Funds held as stable USDC, no yield'
+                      }
+                    </p>
+                  </div>
+                </div>
+                
+                {/* Professional Toggle Button */}
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={formData.yieldEnabled}
+                  onClick={() => setFormData(prev => ({ ...prev, yieldEnabled: !prev.yieldEnabled }))}
+                  className={`
+                    relative inline-flex h-8 w-14 shrink-0 cursor-pointer items-center rounded-full 
+                    border-2 border-transparent transition-colors duration-200 ease-in-out
+                    focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2
+                    ${formData.yieldEnabled 
+                      ? 'bg-green-600 focus-visible:outline-green-600' 
+                      : 'bg-gray-300 focus-visible:outline-gray-400'
+                    }
+                  `}
+                >
+                  <span className="sr-only">Enable yield earning</span>
+                  <span
+                    className={`
+                      pointer-events-none inline-block h-6 w-6 transform rounded-full 
+                      bg-white shadow-lg ring-0 transition duration-200 ease-in-out
+                      ${formData.yieldEnabled ? 'translate-x-7' : 'translate-x-1'}
+                    `}
+                  />
+                </button>
+              </div>
+
+              {/* Info Box */}
+              <div className={`mt-4 p-4 rounded-lg ${formData.yieldEnabled ? 'bg-green-50 border border-green-200' : 'bg-blue-50 border border-blue-200'}`}>
+                {formData.yieldEnabled ? (
+                  <>
+                    <p className="text-sm text-green-800 font-medium mb-1">💰 Yield-Earning Enabled</p>
+                    <p className="text-sm text-green-700">
+                      Funds will be converted to USDB, a yield-earning stablecoin backed 1:1 by USD.
+                      <strong> All yield earned will be returned to the buyer at escrow close.</strong> 
+                      Neither you nor EscrowPayi keeps any of it.
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <p className="text-sm text-blue-800 font-medium mb-1">🛡️ Standard Hold</p>
+                    <p className="text-sm text-blue-700">
+                      Funds will be converted to USDC, a standard stablecoin backed 1:1 by USD.
+                      No yield is earned, but some buyers prefer the familiarity of USDC.
+                    </p>
+                  </>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+
           {errors.submit && (
             <Alert variant="destructive">
               <AlertDescription>{errors.submit}</AlertDescription>
@@ -488,9 +577,34 @@ export default function NewEscrowPage() {
               </Button>
             </div>
 
+            {/* Yield Status Banner */}
+            <div className={`rounded-lg p-4 flex items-center gap-3 ${formData.yieldEnabled ? 'bg-green-50 border border-green-200' : 'bg-blue-50 border border-blue-200'}`}>
+              {formData.yieldEnabled ? (
+                <>
+                  <div className="p-2 bg-green-100 rounded-full">
+                    <TrendingUp className="h-5 w-5 text-green-600" />
+                  </div>
+                  <div>
+                    <p className="font-medium text-green-800">Yield-Earning Enabled (USDB)</p>
+                    <p className="text-sm text-green-700">Buyer will earn interest while funds are in escrow. All yield returned at close.</p>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="p-2 bg-blue-100 rounded-full">
+                    <Shield className="h-5 w-5 text-blue-600" />
+                  </div>
+                  <div>
+                    <p className="font-medium text-blue-800">Standard Hold (USDC)</p>
+                    <p className="text-sm text-blue-700">Funds held securely with no yield earned.</p>
+                  </div>
+                </>
+              )}
+            </div>
+
             {/* Wiring Instructions */}
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-              <h4 className="font-medium text-blue-900 mb-3">Wire Transfer Instructions</h4>
+            <div className="bg-slate-50 border border-slate-200 rounded-lg p-4">
+              <h4 className="font-medium text-slate-900 mb-3">Wire Transfer Instructions</h4>
               <div className="space-y-3">
                 {[
                   { label: 'Bank Name', value: wiringInstructions.bankName, key: 'bankName' },
@@ -503,9 +617,9 @@ export default function NewEscrowPage() {
                   { label: 'Reference', value: wiringInstructions.reference, key: 'reference' },
                 ].map(({ label, value, key }) => value && (
                   <div key={key} className="flex justify-between items-start gap-4">
-                    <span className="text-sm text-blue-700">{label}:</span>
+                    <span className="text-sm text-slate-600">{label}:</span>
                     <div className="flex items-center gap-2">
-                      <span className="text-sm font-mono text-blue-900">{value}</span>
+                      <span className="text-sm font-mono text-slate-900">{value}</span>
                       <Button
                         variant="ghost"
                         size="sm"
@@ -515,7 +629,7 @@ export default function NewEscrowPage() {
                         {copied === key ? (
                           <CheckCircle2 className="h-3.5 w-3.5 text-green-600" />
                         ) : (
-                          <Copy className="h-3.5 w-3.5 text-blue-600" />
+                          <Copy className="h-3.5 w-3.5 text-slate-500" />
                         )}
                       </Button>
                     </div>

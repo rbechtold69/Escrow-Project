@@ -282,25 +282,30 @@ export async function POST(
           let transfer: { id: string; state: string } | null = null;
           
           if (bridge && escrow.bridgeWalletId) {
+            // Determine source currency based on escrow's yield preference
+            const sourceCurrency = escrow.yieldEnabled !== false ? 'usdb' : 'usdc';
+            
             // REAL BRIDGE TRANSFER
             if (payee.paymentMethod === 'USDC' && payee.walletAddress) {
               // USDC Direct - transfer to crypto address
-              console.log(`[CLOSE_ESCROW] Initiating USDC transfer to ${payee.walletAddress}`);
+              console.log(`[CLOSE_ESCROW] Initiating crypto transfer to ${payee.walletAddress} (source: ${sourceCurrency.toUpperCase()})`);
               transfer = await bridge.transferToCrypto(transferIdempotencyKey, {
                 amount: amount.toFixed(2),
                 sourceWalletId: escrow.bridgeWalletId,
                 destinationAddress: payee.walletAddress,
                 destinationChain: 'base',
+                sourceCurrency: sourceCurrency,
               });
             } else if (payee.bridgeBeneficiaryId) {
               // ACH/Wire - transfer to bank account
-              console.log(`[CLOSE_ESCROW] Initiating ${payee.paymentMethod} transfer for ${payeeName}`);
+              console.log(`[CLOSE_ESCROW] Initiating ${payee.paymentMethod} transfer for ${payeeName} (source: ${sourceCurrency.toUpperCase()})`);
               const paymentRail = payee.paymentMethod === 'WIRE' ? 'wire' : 'ach';
               transfer = await bridge.transferToBank(transferIdempotencyKey, {
                 amount: amount.toFixed(2),
                 sourceWalletId: escrow.bridgeWalletId,
                 destinationExternalAccountId: payee.bridgeBeneficiaryId,
                 paymentRail: paymentRail,
+                sourceCurrency: sourceCurrency,
               });
             }
           }

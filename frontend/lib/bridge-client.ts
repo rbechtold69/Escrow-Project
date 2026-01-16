@@ -257,38 +257,42 @@ export class BridgeClient {
   // ════════════════════════════════════════════════════════════════════════
 
   /**
-   * Create a virtual account that receives USD and deposits USDB to a wallet
+   * Create a virtual account that receives USD and deposits to a wallet
    * 
-   * USDB is Bridge's yield-earning stablecoin. It's 1:1 with USD but earns
-   * interest while funds are held in escrow.
+   * Currency options:
+   * - USDB (yieldEnabled=true): Yield-earning stablecoin, 1:1 with USD
+   * - USDC (yieldEnabled=false): Standard stablecoin, no yield
    * 
-   * LEGAL COMPLIANCE: 100% of yield earned MUST be returned to the buyer
-   * (depositor) at escrow close. Neither EscrowPayi nor the Escrow Agent
-   * can legally retain any yield on escrowed funds.
+   * LEGAL COMPLIANCE: If USDB is used, 100% of yield earned MUST be 
+   * returned to the buyer (depositor) at escrow close.
    * 
    * @param escrowId - Unique escrow identifier (used as idempotency key)
-   * @param walletId - Bridge wallet ID to receive the converted USDB
-   * @param developerFeePercent - NOT USED for escrow (yield goes to buyer)
+   * @param walletId - Bridge wallet ID to receive the converted stablecoin
+   * @param yieldEnabled - true = USDB (yield), false = USDC (no yield)
    */
   async createVirtualAccount(
     escrowId: string,
     walletId: string,
-    developerFeePercent?: string
+    yieldEnabled: boolean = true
   ): Promise<BridgeVirtualAccount> {
+    // Buyer's choice: USDB for yield, USDC for no yield
+    const destinationCurrency = yieldEnabled ? 'usdb' : 'usdc';
+    
     const body: Record<string, any> = {
       source: {
         currency: 'usd',
       },
       destination: {
         payment_rail: 'base',
-        currency: 'usdb',  // USDB for yield-earning
+        currency: destinationCurrency,
         bridge_wallet_id: walletId,
       },
     };
 
     // NOTE: We intentionally do NOT set developer_fee_percent for escrow
     // All yield must go to the buyer (depositor) per legal requirements
-    // developerFeePercent is ignored for compliance
+
+    console.log(`[Bridge] Creating virtual account with ${destinationCurrency.toUpperCase()} (yield ${yieldEnabled ? 'ON' : 'OFF'})`);
 
     return this.request<BridgeVirtualAccount>(
       'POST',
@@ -427,7 +431,7 @@ export class BridgeClient {
   /**
    * Transfer funds from a Bridge wallet to an external bank account (ACH/Wire)
    * 
-   * Converts USDB to USD for the bank transfer.
+   * Converts USDB/USDC to USD for the bank transfer.
    * 
    * @param transferId - Unique transfer identifier (used as idempotency key)
    * @param params - Transfer details
@@ -439,6 +443,7 @@ export class BridgeClient {
       sourceWalletId: string;
       destinationExternalAccountId: string;
       paymentRail: 'ach' | 'wire';
+      sourceCurrency?: 'usdb' | 'usdc';  // Based on escrow's yieldEnabled setting
     }
   ): Promise<BridgeTransfer> {
     return this.request<BridgeTransfer>(
@@ -449,7 +454,7 @@ export class BridgeClient {
         on_behalf_of: this.customerId,
         source: {
           payment_rail: 'bridge_wallet',
-          currency: 'usdb',  // USDB (yield-earning stablecoin)
+          currency: params.sourceCurrency || 'usdb',  // Default to USDB
           bridge_wallet_id: params.sourceWalletId,
         },
         destination: {
@@ -463,9 +468,9 @@ export class BridgeClient {
   }
 
   /**
-   * Transfer USDB/USDC directly to a crypto wallet address
+   * Transfer stablecoin directly to a crypto wallet address
    * 
-   * Note: For crypto payouts, we convert USDB → USDC for the recipient
+   * Note: For crypto payouts, we convert to USDC for the recipient
    * since USDC is more widely accepted/liquid.
    * 
    * @param transferId - Unique transfer identifier (used as idempotency key)
@@ -478,6 +483,7 @@ export class BridgeClient {
       sourceWalletId: string;
       destinationAddress: string;
       destinationChain?: string;
+      sourceCurrency?: 'usdb' | 'usdc';  // Based on escrow's yieldEnabled setting
     }
   ): Promise<BridgeTransfer> {
     return this.request<BridgeTransfer>(
@@ -488,7 +494,7 @@ export class BridgeClient {
         on_behalf_of: this.customerId,
         source: {
           payment_rail: 'bridge_wallet',
-          currency: 'usdb',  // Source is USDB (yield-earning)
+          currency: params.sourceCurrency || 'usdb',  // Default to USDB
           bridge_wallet_id: params.sourceWalletId,
         },
         destination: {
