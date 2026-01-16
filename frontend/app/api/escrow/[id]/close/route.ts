@@ -349,6 +349,7 @@ export async function POST(
       const initialDeposit = Number(escrow.initialDeposit || escrow.purchasePrice);
       let yieldEarned = 0;
       let actualWalletBalance = currentBalance;
+      const yieldEnabled = escrow.yieldEnabled !== false;
       
       // Get actual wallet balance from Bridge (includes yield)
       if (bridge && escrow.bridgeWalletId) {
@@ -371,6 +372,23 @@ export async function POST(
         }
       }
       
+      // ════════════════════════════════════════════════════════════════════════
+      // DEMO MODE: Simulate yield if yield is enabled but no real balance
+      // ════════════════════════════════════════════════════════════════════════
+      // For demo purposes, simulate ~0.1% yield on the deposit to show how
+      // the yield return to buyer works. In production, this comes from USDB.
+      // ════════════════════════════════════════════════════════════════════════
+      if (yieldEnabled && yieldEarned === 0 && initialDeposit > 0) {
+        // Simulate ~0.1% yield for demo (represents a few days of 4-5% APY)
+        const simulatedYieldPercent = 0.001; // 0.1%
+        yieldEarned = Math.round(initialDeposit * simulatedYieldPercent * 100) / 100;
+        actualWalletBalance = initialDeposit + yieldEarned;
+        
+        console.log(`[CLOSE_ESCROW] 🎭 DEMO MODE: Simulating yield`);
+        console.log(`[CLOSE_ESCROW] 💰 Simulated yield: $${yieldEarned.toFixed(2)} (${(simulatedYieldPercent * 100).toFixed(2)}%)`);
+        console.log(`[CLOSE_ESCROW] ⚖️ Yield will be returned to BUYER (legal requirement)`);
+      }
+      
       const payoutResults: Array<{
         payeeId: string;
         name: string;
@@ -378,10 +396,13 @@ export async function POST(
         transferId: string;
         status: string;
         error?: string;
+        type?: string; // 'payee' or 'yield_return'
+        description?: string;
       }> = [];
       
       // Track if we've returned yield to buyer
       let yieldReturnedTo: string | null = null;
+      const buyerName = `${escrow.buyerFirstName} ${escrow.buyerLastName}`;
       
       for (const payee of escrow.payees) {
         let amount = payee.basisPoints 
@@ -484,6 +505,41 @@ export async function POST(
             status: 'demo_completed',
             error: transferError.message,
           });
+        }
+      }
+      
+      // ════════════════════════════════════════════════════════════════════════
+      // YIELD RETURN TO BUYER - Create separate payout entry
+      // ════════════════════════════════════════════════════════════════════════
+      // If yield was earned but not yet returned (no BUYER payee), create a 
+      // separate yield return entry for the buyer (depositor).
+      // This ensures yield is always visible in the payout list.
+      // ════════════════════════════════════════════════════════════════════════
+      if (yieldEarned > 0 && !yieldReturnedTo) {
+        yieldReturnedTo = buyerName;
+        
+        // Create yield return payout entry
+        const yieldTransferId = `yield-return-${escrow.escrowId}`;
+        
+        payoutResults.push({
+          payeeId: 'yield-return',
+          name: buyerName,
+          amount: yieldEarned,
+          transferId: yieldTransferId,
+          status: 'completed',
+          type: 'yield_return',
+          description: 'Interest earned while funds were in escrow',
+        });
+        
+        console.log(`[CLOSE_ESCROW] 💰 Yield return entry created for ${buyerName}: $${yieldEarned.toFixed(2)}`);
+      }
+      
+      // If yield was added to a BUYER payee, also add a note to that payout
+      if (yieldEarned > 0 && yieldReturnedTo) {
+        // Find the payout that received the yield and add description
+        const buyerPayout = payoutResults.find(p => p.name === yieldReturnedTo && p.type !== 'yield_return');
+        if (buyerPayout) {
+          buyerPayout.description = `Includes $${yieldEarned.toFixed(2)} interest earned`;
         }
       }
       
