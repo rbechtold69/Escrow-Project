@@ -16,7 +16,7 @@ export async function POST(
     const body = await request.json().catch(() => ({}));
     const action = body.action || 'initiate'; // 'initiate', 'sign', 'execute'
     
-    // Find escrow with payees
+    // Find escrow with payees and signers
     const escrow = await prisma.escrow.findFirst({
       where: {
         OR: [
@@ -26,6 +26,9 @@ export async function POST(
       },
       include: {
         payees: true,
+        signers: {
+          orderBy: { signerOrder: 'asc' },
+        },
       },
     });
     
@@ -71,6 +74,13 @@ export async function POST(
     }, 0);
 
     // ════════════════════════════════════════════════════════════════════════
+    // APPROVAL SETTINGS
+    // ════════════════════════════════════════════════════════════════════════
+    const requiredApprovals = escrow.requiredApprovals || 1;
+    const signers = escrow.signers || [];
+    const signedCount = signers.filter(s => s.hasSigned).length;
+    
+    // ════════════════════════════════════════════════════════════════════════
     // ACTION: INITIATE - First signature (creates pending transaction)
     // ════════════════════════════════════════════════════════════════════════
     if (action === 'initiate') {
@@ -82,19 +92,88 @@ export async function POST(
           status: 'CLOSING',
           pendingSignatures: {
             safeTxHash: `0x${escrow.escrowId.replace(/-/g, '').padEnd(64, '0')}`,
-            confirmations: 1,
-            threshold: 2,
-            signers: [
-              { address: body.signerAddress || '0x...', signed: true, role: 'Escrow Officer' },
-              { address: '0x...pending...', signed: false, role: 'Supervisor' },
-            ],
+            confirmations: signedCount,
+            threshold: requiredApprovals,
+            signers: signers.map(s => ({
+              address: s.walletAddress,
+              signed: s.hasSigned,
+              role: s.role,
+              displayName: s.displayName,
+            })),
           },
-          requiredSignatures: 2,
-          currentSignatures: 1,
+          requiredSignatures: requiredApprovals,
+          currentSignatures: signedCount,
         });
       }
       
-      // Update escrow status to CLOSING
+      // Mark the first signer as signed (if they match)
+      const signerAddress = body.signerAddress?.toLowerCase();
+      if (signerAddress && signers.length > 0) {
+        const matchingSigner = signers.find(s => s.walletAddress.toLowerCase() === signerAddress);
+        if (matchingSigner) {
+          await prisma.escrowSigner.update({
+            where: { id: matchingSigner.id },
+            data: { hasSigned: true, signedAt: new Date() },
+          });
+        }
+      }
+      
+      // For single approval, go straight to execution
+      if (requiredApprovals === 1) {
+        // Update escrow status to CLOSING (will be executed immediately)
+        await prisma.escrow.update({
+          where: { id: escrow.id },
+          data: { status: 'CLOSING' },
+        });
+        
+        // Log the initiation
+        await prisma.activityLog.create({
+          data: {
+            escrowId: escrow.id,
+            action: 'CLOSE_INITIATED',
+            details: {
+              currentBalance: currentBalance,
+              totalToPayees: totalToPayees,
+              payeeCount: escrow.payees.length,
+              initiatedBy: body.signerAddress || 'unknown',
+              singleApproval: true,
+            },
+            actorWallet: body.signerAddress || null,
+          },
+        });
+        
+        console.log(`[CLOSE_ESCROW] Single approval escrow - ready to execute for ${escrow.escrowId}`);
+        
+        const safeTxHash = `0x${escrow.escrowId.replace(/-/g, '').padEnd(64, '0')}`;
+        
+        return NextResponse.json({
+          success: true,
+          message: 'Single approval - ready to execute',
+          status: 'CLOSING',
+          pendingSignatures: {
+            safeTxHash,
+            confirmations: 1,
+            threshold: 1,
+            signers: signers.map(s => ({
+              address: s.walletAddress,
+              signed: true,
+              role: s.role,
+              displayName: s.displayName,
+            })),
+          },
+          requiredSignatures: 1,
+          currentSignatures: 1,
+          canExecute: true,
+          summary: {
+            escrowId: escrow.escrowId,
+            currentBalance: currentBalance,
+            totalToPayees: totalToPayees,
+            payeeCount: escrow.payees.length,
+          },
+        });
+      }
+      
+      // Multi-approval: Update escrow status to CLOSING and wait for more signatures
       await prisma.escrow.update({
         where: { id: escrow.id },
         data: { status: 'CLOSING' },
@@ -110,32 +189,42 @@ export async function POST(
             totalToPayees: totalToPayees,
             payeeCount: escrow.payees.length,
             initiatedBy: body.signerAddress || 'unknown',
+            requiredApprovals: requiredApprovals,
           },
           actorWallet: body.signerAddress || null,
         },
       });
       
       console.log(`[CLOSE_ESCROW] Close initiated for ${escrow.escrowId}`);
-      console.log(`  Waiting for 2nd signature...`);
+      console.log(`  Waiting for ${requiredApprovals - 1} more signature(s)...`);
       
       // Generate mock Safe transaction hash
       const safeTxHash = `0x${escrow.escrowId.replace(/-/g, '').padEnd(64, '0')}`;
       
+      // Get updated signers
+      const updatedSigners = await prisma.escrowSigner.findMany({
+        where: { escrowId: escrow.id },
+        orderBy: { signerOrder: 'asc' },
+      });
+      
       return NextResponse.json({
         success: true,
-        message: 'Close transaction created - awaiting additional signatures',
+        message: `Close transaction created - awaiting ${requiredApprovals - 1} more signature(s)`,
         status: 'CLOSING',
         pendingSignatures: {
           safeTxHash,
           confirmations: 1,
-          threshold: 2,
-          signers: [
-            { address: body.signerAddress || '0x...', signed: true, role: 'Escrow Officer' },
-            { address: '0x...pending...', signed: false, role: 'Supervisor' },
-          ],
+          threshold: requiredApprovals,
+          signers: updatedSigners.map(s => ({
+            address: s.walletAddress,
+            signed: s.hasSigned,
+            role: s.role,
+            displayName: s.displayName,
+          })),
         },
-        requiredSignatures: 2,
+        requiredSignatures: requiredApprovals,
         currentSignatures: 1,
+        canExecute: requiredApprovals === 1,
         summary: {
           escrowId: escrow.escrowId,
           currentBalance: currentBalance,
@@ -156,40 +245,78 @@ export async function POST(
         );
       }
       
+      const signerAddress = body.signerAddress?.toLowerCase();
+      
+      // Find the signer in the escrow's signer list
+      const matchingSigner = signers.find(s => s.walletAddress.toLowerCase() === signerAddress);
+      
+      if (!matchingSigner) {
+        return NextResponse.json(
+          { error: 'You are not authorized to sign this escrow' },
+          { status: 403 }
+        );
+      }
+      
+      if (matchingSigner.hasSigned) {
+        return NextResponse.json(
+          { error: 'You have already signed this transaction' },
+          { status: 400 }
+        );
+      }
+      
+      // Mark signer as signed
+      await prisma.escrowSigner.update({
+        where: { id: matchingSigner.id },
+        data: { hasSigned: true, signedAt: new Date() },
+      });
+      
       // Log the signature
+      const newSignedCount = signedCount + 1;
       await prisma.activityLog.create({
         data: {
           escrowId: escrow.id,
           action: 'CLOSE_SIGNED',
           details: {
             signedBy: body.signerAddress || 'unknown',
-            signatureNumber: 2,
+            signerRole: matchingSigner.role,
+            signatureNumber: newSignedCount,
+            requiredApprovals: requiredApprovals,
           },
           actorWallet: body.signerAddress || null,
         },
       });
       
-      console.log(`[CLOSE_ESCROW] 2nd signature received for ${escrow.escrowId}`);
+      console.log(`[CLOSE_ESCROW] Signature ${newSignedCount}/${requiredApprovals} received for ${escrow.escrowId}`);
       
-      // With 2 signatures, we now have enough to execute
+      // Get updated signers
+      const updatedSigners = await prisma.escrowSigner.findMany({
+        where: { escrowId: escrow.id },
+        orderBy: { signerOrder: 'asc' },
+      });
+      
       const safeTxHash = `0x${escrow.escrowId.replace(/-/g, '').padEnd(64, '0')}`;
+      const canExecute = newSignedCount >= requiredApprovals;
       
       return NextResponse.json({
         success: true,
-        message: 'Transaction signed - threshold reached, ready to execute',
+        message: canExecute 
+          ? 'Transaction signed - threshold reached, ready to execute' 
+          : `Transaction signed - ${requiredApprovals - newSignedCount} more signature(s) needed`,
         status: 'CLOSING',
         pendingSignatures: {
           safeTxHash,
-          confirmations: 2,
-          threshold: 2,
-          signers: [
-            { address: '0x...first...', signed: true, role: 'Escrow Officer' },
-            { address: body.signerAddress || '0x...', signed: true, role: 'Supervisor' },
-          ],
+          confirmations: newSignedCount,
+          threshold: requiredApprovals,
+          signers: updatedSigners.map(s => ({
+            address: s.walletAddress,
+            signed: s.hasSigned,
+            role: s.role,
+            displayName: s.displayName,
+          })),
         },
-        requiredSignatures: 2,
-        currentSignatures: 2,
-        canExecute: true,
+        requiredSignatures: requiredApprovals,
+        currentSignatures: newSignedCount,
+        canExecute: canExecute,
       });
     }
 
@@ -467,6 +594,9 @@ export async function GET(
       },
       include: {
         payees: true,
+        signers: {
+          orderBy: { signerOrder: 'asc' },
+        },
         activityLogs: {
           where: {
             action: {
@@ -496,32 +626,25 @@ export async function GET(
       return sum + amount;
     }, 0);
     
-    // Check for pending signatures
-    const closeInitiated = escrow.activityLogs.find(l => l.action === 'CLOSE_INITIATED');
-    const signLogs = escrow.activityLogs.filter(l => l.action === 'CLOSE_SIGNED');
-    const confirmations = closeInitiated ? 1 + signLogs.length : 0;
+    // Get approval settings from escrow
+    const requiredApprovals = escrow.requiredApprovals || 1;
+    const signers = escrow.signers || [];
+    const signedCount = signers.filter(s => s.hasSigned).length;
     
     let pendingSignatures = null;
     if (escrow.status === 'CLOSING') {
       pendingSignatures = {
         safeTxHash: `0x${escrow.escrowId.replace(/-/g, '').padEnd(64, '0')}`,
-        confirmations: confirmations,
-        threshold: 2,
-        canExecute: confirmations >= 2,
-        signers: [
-          { 
-            address: (closeInitiated?.details as any)?.initiatedBy || '0x...', 
-            signed: true, 
-            role: 'Escrow Officer',
-            signedAt: closeInitiated?.createdAt,
-          },
-          ...signLogs.map((log, i) => ({
-            address: (log.details as any)?.signedBy || '0x...',
-            signed: true,
-            role: i === 0 ? 'Supervisor' : `Signer ${i + 2}`,
-            signedAt: log.createdAt,
-          })),
-        ],
+        confirmations: signedCount,
+        threshold: requiredApprovals,
+        canExecute: signedCount >= requiredApprovals,
+        signers: signers.map(s => ({
+          address: s.walletAddress,
+          signed: s.hasSigned,
+          role: s.role,
+          displayName: s.displayName,
+          signedAt: s.signedAt,
+        })),
       };
     }
     
@@ -529,6 +652,19 @@ export async function GET(
       canClose: escrow.status === 'FUNDS_RECEIVED' || escrow.status === 'READY_TO_CLOSE',
       status: escrow.status,
       pendingSignatures,
+      // Approval settings
+      approvalSettings: {
+        requiredApprovals: requiredApprovals,
+        currentSignatures: signedCount,
+        isSingleApproval: requiredApprovals === 1,
+        signers: signers.map(s => ({
+          address: s.walletAddress,
+          displayName: s.displayName,
+          role: s.role,
+          hasSigned: s.hasSigned,
+          signedAt: s.signedAt,
+        })),
+      },
       summary: {
         principal: principal,
         currentBalance: currentBalance,

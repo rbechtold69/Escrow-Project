@@ -25,6 +25,12 @@ import { z } from 'zod';
 // INPUT VALIDATION
 // ============================================================================
 
+const SignerSchema = z.object({
+  walletAddress: z.string().min(1, 'Wallet address is required'),
+  displayName: z.string().optional(),
+  role: z.string().default('Approver'),
+});
+
 const CreateEscrowSchema = z.object({
   propertyAddress: z.string().min(1, 'Property address is required'),
   city: z.string().optional(),
@@ -37,6 +43,9 @@ const CreateEscrowSchema = z.object({
   officerAddress: z.string().optional(),
   // Yield preference: true = USDB (earn yield), false = USDC (no yield)
   yieldEnabled: z.boolean().optional().default(true),
+  // Approval settings
+  requiredApprovals: z.number().int().min(1).max(5).optional().default(1),
+  additionalSigners: z.array(SignerSchema).optional().default([]),
 });
 
 // ============================================================================
@@ -162,6 +171,10 @@ export async function POST(request: NextRequest) {
     // Store yield preference
     const yieldEnabled = validatedData.yieldEnabled !== false;
     
+    // Approval settings
+    const requiredApprovals = validatedData.requiredApprovals || 1;
+    const additionalSigners = validatedData.additionalSigners || [];
+    
     const escrow = await prisma.escrow.create({
       data: {
         escrowId,
@@ -179,6 +192,9 @@ export async function POST(request: NextRequest) {
         bridgeWalletAddress: bridgeWallet?.address || null,
         bridgeVirtualAccountId: bridgeVirtualAccount?.id || null,
         
+        // Approval settings
+        requiredApprovals: requiredApprovals,
+        
         // Yield preference (buyer's choice)
         yieldEnabled: yieldEnabled,
         
@@ -188,6 +204,26 @@ export async function POST(request: NextRequest) {
         
         status: 'CREATED',
         createdById: user.id,
+        
+        // Create signers (primary officer first, then additional)
+        signers: {
+          create: [
+            // Primary officer (the creator)
+            {
+              walletAddress: validatedData.officerAddress || user.walletAddress,
+              displayName: user.displayName || 'Primary Officer',
+              role: 'Primary Officer',
+              signerOrder: 1,
+            },
+            // Additional signers
+            ...additionalSigners.map((signer, index) => ({
+              walletAddress: signer.walletAddress,
+              displayName: signer.displayName || null,
+              role: signer.role || 'Approver',
+              signerOrder: index + 2,
+            })),
+          ],
+        },
       },
     });
 

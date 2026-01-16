@@ -55,6 +55,13 @@ interface PendingSignature {
   signers: Signer[];
 }
 
+interface ApprovalSettings {
+  requiredApprovals: number;
+  currentSignatures: number;
+  isSingleApproval: boolean;
+  signers: Signer[];
+}
+
 interface MultisigSigningProps {
   escrowId: string;
   escrowNumber: string;
@@ -63,6 +70,7 @@ interface MultisigSigningProps {
   payeeCount: number;
   status: string;
   pendingSignatures: PendingSignature | null;
+  approvalSettings?: ApprovalSettings;
   onInitiateClose: () => Promise<void>;
   onSign: () => Promise<void>;
   onExecute: () => Promise<void>;
@@ -81,6 +89,7 @@ export function MultisigSigning({
   payeeCount,
   status,
   pendingSignatures,
+  approvalSettings,
   onInitiateClose,
   onSign,
   onExecute,
@@ -92,8 +101,10 @@ export function MultisigSigning({
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const [actionType, setActionType] = useState<'initiate' | 'sign' | 'execute'>('initiate');
 
+  // Use approval settings from props or pendingSignatures
+  const threshold = approvalSettings?.requiredApprovals || pendingSignatures?.threshold || 1;
   const confirmations = pendingSignatures?.confirmations || 0;
-  const threshold = pendingSignatures?.threshold || 2;
+  const isSingleApproval = threshold === 1;
   const progressPercent = (confirmations / threshold) * 100;
   const canExecute = pendingSignatures?.canExecute || confirmations >= threshold;
 
@@ -173,35 +184,49 @@ export function MultisigSigning({
         <CardHeader className="pb-3">
             <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <Users className="h-5 w-5 text-slate-600" />
-              <CardTitle className="text-lg">Multi-Approval Required</CardTitle>
+              {isSingleApproval ? (
+                <ShieldCheck className="h-5 w-5 text-slate-600" />
+              ) : (
+                <Users className="h-5 w-5 text-slate-600" />
+              )}
+              <CardTitle className="text-lg">
+                {isSingleApproval ? 'Single Approval' : 'Multi-Approval Required'}
+              </CardTitle>
             </div>
             <Badge variant={isClosing ? "secondary" : canInitiate ? "default" : "outline"} className={cn(canInitiate && !isClosing && "bg-green-100 text-green-700")}>
-              {isClosing ? 'Pending Signatures' : canInitiate ? '✓ Ready to Close' : 'Configure Payees'}
+              {isClosing ? (isSingleApproval ? 'Ready to Execute' : 'Pending Signatures') : canInitiate ? '✓ Ready to Close' : 'Configure Payees'}
             </Badge>
           </div>
           <CardDescription>
             {isClosing 
-              ? `${confirmations} of ${threshold} required signatures collected`
-              : `Requires ${threshold} authorized signatures to close escrow`
+              ? (isSingleApproval 
+                  ? 'Your approval is complete - ready to execute'
+                  : `${confirmations} of ${threshold} required signatures collected`)
+              : (isSingleApproval
+                  ? 'Only your approval is required to close'
+                  : `Requires ${threshold} authorized signatures to close escrow`)
             }
           </CardDescription>
         </CardHeader>
 
         <CardContent className="space-y-4">
-          {/* Progress Bar */}
-          <div className="space-y-2">
-            <div className="flex justify-between text-sm">
-              <span>Signature Progress</span>
-              <span className="font-medium">{confirmations}/{threshold}</span>
+          {/* Progress Bar (only for multi-approval) */}
+          {!isSingleApproval && (
+            <div className="space-y-2">
+              <div className="flex justify-between text-sm">
+                <span>Signature Progress</span>
+                <span className="font-medium">{confirmations}/{threshold}</span>
+              </div>
+              <Progress value={progressPercent} className="h-2" />
             </div>
-            <Progress value={progressPercent} className="h-2" />
-          </div>
+          )}
 
           {/* Signers List */}
-          {isClosing && pendingSignatures?.signers && (
+          {isClosing && pendingSignatures?.signers && pendingSignatures.signers.length > 0 && (
             <div className="space-y-2 border rounded-lg p-3 bg-white">
-              <h4 className="text-sm font-medium text-slate-500 mb-2">Signers</h4>
+              <h4 className="text-sm font-medium text-slate-500 mb-2">
+                {isSingleApproval ? 'Approver' : 'Signers'}
+              </h4>
               {pendingSignatures.signers.map((signer, i) => (
                 <div 
                   key={i}
@@ -217,14 +242,16 @@ export function MultisigSigning({
                       <Clock className="h-4 w-4 text-amber-500" />
                     )}
                     <div>
-                      <p className="text-sm font-medium">{signer.role}</p>
+                      <p className="text-sm font-medium">
+                        {(signer as any).displayName || signer.role}
+                      </p>
                       <p className="text-xs text-slate-500 font-mono">
                         {signer.address.slice(0, 6)}...{signer.address.slice(-4)}
                       </p>
                     </div>
                   </div>
                   <Badge variant={signer.signed ? "default" : "secondary"}>
-                    {signer.signed ? 'Signed' : 'Pending'}
+                    {signer.signed ? 'Approved' : 'Pending'}
                   </Badge>
                 </div>
               ))}
@@ -337,8 +364,8 @@ export function MultisigSigning({
             </Button>
           )}
 
-          {/* Pending State: Need more signatures */}
-          {isClosing && !canExecute && (
+          {/* Pending State: Need more signatures (multi-approval only) */}
+          {isClosing && !canExecute && !isSingleApproval && (
             <Button 
               onClick={() => openConfirmDialog('sign')}
               className="w-full"
@@ -350,7 +377,7 @@ export function MultisigSigning({
               ) : (
                 <KeyRound className="h-4 w-4 mr-2" />
               )}
-              Add Signature (Demo: Simulate 2nd Signer)
+              Add Signature ({threshold - confirmations} more needed)
             </Button>
           )}
 

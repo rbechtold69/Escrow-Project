@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAccount } from 'wagmi';
-import { ArrowLeft, Building2, Loader2, Copy, Download, CheckCircle2, Mail, User, TrendingUp, Shield } from 'lucide-react';
+import { ArrowLeft, Building2, Loader2, Copy, Download, CheckCircle2, Mail, User, TrendingUp, Shield, Users, Plus, X } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -44,7 +44,16 @@ export default function NewEscrowPage() {
     buyerEmail: '',
     // Yield Preference
     yieldEnabled: true, // Default: ON (USDB)
+    // Approval Settings
+    multiApproval: false, // Default: single signer
   });
+  
+  // Additional signers for multi-approval
+  const [additionalSigners, setAdditionalSigners] = useState<Array<{
+    walletAddress: string;
+    displayName: string;
+    role: string;
+  }>>([]);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [wiringInstructions, setWiringInstructions] = useState<WiringInstructions | null>(null);
   const [escrowId, setEscrowId] = useState<string | null>(null);
@@ -131,6 +140,9 @@ export default function NewEscrowPage() {
           buyerEmail: formData.buyerEmail,
           officerAddress: address,
           yieldEnabled: formData.yieldEnabled,
+          // Approval settings
+          requiredApprovals: formData.multiApproval ? (additionalSigners.length + 1) : 1,
+          additionalSigners: formData.multiApproval ? additionalSigners : [],
         }),
       });
       
@@ -516,6 +528,194 @@ export default function NewEscrowPage() {
                   </>
                 )}
               </div>
+            </CardContent>
+          </Card>
+
+          {/* Approval Settings Card */}
+          <Card className="border-2 border-dashed">
+            <CardHeader className="pb-3">
+              <CardTitle className="flex items-center gap-2 text-lg">
+                <Users className="h-5 w-5" />
+                Approval Settings
+              </CardTitle>
+              <CardDescription>
+                Choose who can authorize closing this escrow
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {/* Toggle Switch */}
+              <div className="flex items-center justify-between p-4 rounded-lg bg-gray-50">
+                <div className="flex items-center gap-3">
+                  <div className={`p-2 rounded-full ${formData.multiApproval ? 'bg-purple-100' : 'bg-gray-200'}`}>
+                    <Users className={`h-5 w-5 ${formData.multiApproval ? 'text-purple-600' : 'text-gray-500'}`} />
+                  </div>
+                  <div>
+                    <p className="font-medium text-gray-900">
+                      {formData.multiApproval ? 'Multi-Approval Required' : 'Single Approval'}
+                    </p>
+                    <p className="text-sm text-gray-500">
+                      {formData.multiApproval 
+                        ? `${additionalSigners.length + 1} signatures required to close` 
+                        : 'Only you can close this escrow'
+                      }
+                    </p>
+                  </div>
+                </div>
+                
+                {/* Toggle Button */}
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={formData.multiApproval}
+                  onClick={() => {
+                    setFormData(prev => ({ ...prev, multiApproval: !prev.multiApproval }));
+                    if (!formData.multiApproval && additionalSigners.length === 0) {
+                      // Add one empty signer when enabling
+                      setAdditionalSigners([{ walletAddress: '', displayName: '', role: 'Supervisor' }]);
+                    }
+                  }}
+                  className={`
+                    relative inline-flex h-8 w-14 shrink-0 cursor-pointer items-center rounded-full 
+                    border-2 border-transparent transition-colors duration-200 ease-in-out
+                    focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2
+                    ${formData.multiApproval 
+                      ? 'bg-purple-600 focus-visible:outline-purple-600' 
+                      : 'bg-gray-300 focus-visible:outline-gray-400'
+                    }
+                  `}
+                >
+                  <span className="sr-only">Enable multi-approval</span>
+                  <span
+                    className={`
+                      pointer-events-none inline-block h-6 w-6 transform rounded-full 
+                      bg-white shadow-lg ring-0 transition duration-200 ease-in-out
+                      ${formData.multiApproval ? 'translate-x-7' : 'translate-x-1'}
+                    `}
+                  />
+                </button>
+              </div>
+
+              {/* Additional Signers */}
+              {formData.multiApproval && (
+                <div className="mt-4 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <h4 className="text-sm font-medium text-gray-700">Additional Approvers</h4>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setAdditionalSigners([...additionalSigners, { walletAddress: '', displayName: '', role: 'Approver' }])}
+                    >
+                      <Plus className="h-4 w-4 mr-1" />
+                      Add Signer
+                    </Button>
+                  </div>
+
+                  {/* Primary Officer (read-only) */}
+                  <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                    <div className="flex items-center gap-2 mb-1">
+                      <CheckCircle2 className="h-4 w-4 text-blue-600" />
+                      <span className="text-sm font-medium text-blue-900">You (Primary Officer)</span>
+                    </div>
+                    <p className="text-xs text-blue-700 font-mono truncate">
+                      {address || 'Connect wallet to see address'}
+                    </p>
+                  </div>
+
+                  {/* Additional Signers List */}
+                  {additionalSigners.map((signer, index) => (
+                    <div key={index} className="p-4 bg-gray-50 border border-gray-200 rounded-lg space-y-3">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-medium text-gray-700">Signer {index + 2}</span>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="h-8 w-8 p-0 text-gray-400 hover:text-red-500"
+                          onClick={() => {
+                            const updated = additionalSigners.filter((_, i) => i !== index);
+                            setAdditionalSigners(updated);
+                            if (updated.length === 0) {
+                              setFormData(prev => ({ ...prev, multiApproval: false }));
+                            }
+                          }}
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </div>
+                      
+                      <div>
+                        <Label className="text-xs">Coinbase Wallet Address *</Label>
+                        <Input
+                          placeholder="0x..."
+                          value={signer.walletAddress}
+                          onChange={(e) => {
+                            const updated = [...additionalSigners];
+                            updated[index].walletAddress = e.target.value;
+                            setAdditionalSigners(updated);
+                          }}
+                          className="font-mono text-sm"
+                        />
+                        <p className="text-xs text-gray-500 mt-1">
+                          The wallet address they use to sign in
+                        </p>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <Label className="text-xs">Name (Optional)</Label>
+                          <Input
+                            placeholder="John Smith"
+                            value={signer.displayName}
+                            onChange={(e) => {
+                              const updated = [...additionalSigners];
+                              updated[index].displayName = e.target.value;
+                              setAdditionalSigners(updated);
+                            }}
+                          />
+                        </div>
+                        <div>
+                          <Label className="text-xs">Role</Label>
+                          <select
+                            className="w-full h-10 px-3 rounded-md border border-gray-200 text-sm"
+                            value={signer.role}
+                            onChange={(e) => {
+                              const updated = [...additionalSigners];
+                              updated[index].role = e.target.value;
+                              setAdditionalSigners(updated);
+                            }}
+                          >
+                            <option value="Supervisor">Supervisor</option>
+                            <option value="Manager">Manager</option>
+                            <option value="Co-Officer">Co-Officer</option>
+                            <option value="Compliance">Compliance</option>
+                            <option value="Approver">Approver</option>
+                          </select>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+
+                  {/* Info Box */}
+                  <div className="p-4 bg-purple-50 border border-purple-200 rounded-lg">
+                    <p className="text-sm text-purple-800 font-medium mb-1">🔐 Multi-Approval Security</p>
+                    <p className="text-sm text-purple-700">
+                      All {additionalSigners.length + 1} signers must approve before funds can be disbursed. 
+                      Each signer must connect with their Coinbase Wallet to authorize the transaction.
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {/* Single approval info */}
+              {!formData.multiApproval && (
+                <div className="mt-4 p-4 bg-gray-50 border border-gray-200 rounded-lg">
+                  <p className="text-sm text-gray-700">
+                    With single approval, only you can close this escrow. 
+                    Enable multi-approval if you need supervisor or compliance sign-off.
+                  </p>
+                </div>
+              )}
             </CardContent>
           </Card>
 
