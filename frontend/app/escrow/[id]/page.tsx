@@ -77,6 +77,9 @@ interface EscrowData {
   createdAt: string;
   depositAmount?: number;
   currentBalance: number;
+  initialDeposit?: number;
+  yieldEarned?: number;
+  yieldReturnedTo?: string;
   depositReceivedAt?: string;
   closedAt?: string;
   wiringInstructions: {
@@ -106,6 +109,32 @@ interface EscrowData {
     threshold: number;
     confirmations: number;
   }>;
+}
+
+interface DepositHistoryData {
+  hasVirtualAccount: boolean;
+  events: Array<{
+    id: string;
+    type: string;
+    status: string;
+    statusColor: string;
+    icon: string;
+    amount: number;
+    formattedAmount: string;
+    timestamp: string;
+    formattedTimestamp: string;
+    txHash?: string;
+  }>;
+  summary: {
+    totalDeposited: number;
+    currentBalance: number;
+    yieldEarned: number;
+    yieldPercent: number;
+    formattedYield: string;
+    currency: string;
+    depositCount: number;
+    yieldNote: string;
+  } | null;
 }
 
 const statusConfig: Record<string, { label: string; color: string; icon: React.ElementType }> = {
@@ -145,6 +174,8 @@ export default function EscrowDetailPage() {
     canExecute: boolean;
     signers: Array<{ address: string; signed: boolean; role: string; signedAt?: Date }>;
   } | null>(null);
+  const [depositHistory, setDepositHistory] = useState<DepositHistoryData | null>(null);
+  const [loadingHistory, setLoadingHistory] = useState(false);
 
   // Real-time updates via Pusher
   usePusher(`escrow-${escrowId}`, {
@@ -182,9 +213,25 @@ export default function EscrowDetailPage() {
     }
   };
 
+  const fetchDepositHistory = async () => {
+    setLoadingHistory(true);
+    try {
+      const response = await fetch(`/api/escrow/${escrowId}/deposit-history`);
+      if (response.ok) {
+        const data = await response.json();
+        setDepositHistory(data);
+      }
+    } catch (error) {
+      console.log('Could not fetch deposit history');
+    } finally {
+      setLoadingHistory(false);
+    }
+  };
+
   useEffect(() => {
     fetchEscrow();
     fetchCloseStatus();
+    fetchDepositHistory();
   }, [escrowId]);
 
   const handleRefresh = () => {
@@ -514,20 +561,78 @@ export default function EscrowDetailPage() {
                   {formatCurrency(escrow.currentBalance || 0)}
                 </div>
                 <p className="text-blue-100 text-sm mt-1">
-                  Held in Secure Escrow
+                  Held in USDB (Yield-Earning)
                 </p>
                 <div className="mt-4 pt-4 border-t border-blue-400/30">
                   <div className="flex justify-between text-sm">
+                    <span className="text-blue-100">Initial Deposit</span>
+                    <span>{formatCurrency(escrow.initialDeposit || escrow.depositAmount || 0)}</span>
+                  </div>
+                  {depositHistory?.summary?.yieldEarned !== undefined && depositHistory.summary.yieldEarned > 0 && (
+                    <div className="flex justify-between text-sm mt-1">
+                      <span className="text-blue-100 flex items-center gap-1">
+                        💰 Yield Earned
+                      </span>
+                      <span className="text-green-200 font-medium">
+                        +{depositHistory.summary.formattedYield}
+                      </span>
+                    </div>
+                  )}
+                  <div className="flex justify-between text-sm mt-1">
                     <span className="text-blue-100">Purchase Price</span>
                     <span>{formatCurrency(escrow.purchasePrice)}</span>
                   </div>
-                  <div className="flex justify-between text-sm mt-1">
-                    <span className="text-blue-100">Deposited</span>
-                    <span>{formatCurrency(escrow.depositAmount || 0)}</span>
-                  </div>
                 </div>
+                {/* Yield Notice */}
+                {depositHistory?.summary?.yieldEarned !== undefined && depositHistory.summary.yieldEarned > 0 && (
+                  <div className="mt-3 pt-3 border-t border-blue-400/30">
+                    <p className="text-xs text-blue-200">
+                      ⚖️ All yield ({depositHistory.summary.formattedYield}) will be returned to the buyer at close as legally required.
+                    </p>
+                  </div>
+                )}
               </CardContent>
             </Card>
+            
+            {/* Deposit History Card */}
+            {depositHistory?.summary && depositHistory.events.length > 0 && (
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-lg flex items-center gap-2">
+                    <RefreshCw className="h-5 w-5 text-slate-400" />
+                    Deposit Activity
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
+                    {depositHistory.events.slice(0, 5).map((event) => (
+                      <div key={event.id} className="flex items-start gap-3 text-sm">
+                        <span className="text-lg">{event.icon}</span>
+                        <div className="flex-1 min-w-0">
+                          <div className="font-medium">{event.status}</div>
+                          <div className="text-slate-500 text-xs">
+                            {event.formattedTimestamp}
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <div className="font-medium">{event.formattedAmount}</div>
+                          {event.txHash && (
+                            <a 
+                              href={`https://basescan.org/tx/${event.txHash}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-xs text-blue-500 hover:underline"
+                            >
+                              View tx →
+                            </a>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
 
             {/* Wiring Instructions */}
             <Card>

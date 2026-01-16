@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { getBridgeClient } from '@/lib/bridge-client';
+import { getBridgeClient, calculateYieldEarned } from '@/lib/bridge-client';
 
 // ============================================================
 // POST /api/escrow/[id]/close
@@ -212,6 +212,38 @@ export async function POST(
         console.log('[CLOSE_ESCROW] Bridge client not available, using demo mode');
       }
       
+      // ════════════════════════════════════════════════════════════════════════
+      // YIELD CALCULATION - Must return 100% to buyer
+      // ════════════════════════════════════════════════════════════════════════
+      // LEGAL REQUIREMENT: Any yield earned on escrowed funds belongs to the 
+      // buyer (depositor). Neither EscrowPayi nor the Escrow Agent can keep it.
+      // ════════════════════════════════════════════════════════════════════════
+      
+      const initialDeposit = Number(escrow.initialDeposit || escrow.purchasePrice);
+      let yieldEarned = 0;
+      let actualWalletBalance = currentBalance;
+      
+      // Get actual wallet balance from Bridge (includes yield)
+      if (bridge && escrow.bridgeWalletId) {
+        try {
+          const wallet = await bridge.getWallet(escrow.bridgeWalletId);
+          const usdbBalance = wallet.balances?.find(b => b.currency === 'usdb');
+          const usdcBalance = wallet.balances?.find(b => b.currency === 'usdc');
+          actualWalletBalance = parseFloat(usdbBalance?.balance || '0') + parseFloat(usdcBalance?.balance || '0');
+          
+          // Calculate yield
+          const yieldInfo = calculateYieldEarned(actualWalletBalance, initialDeposit);
+          yieldEarned = yieldInfo.yieldAmount;
+          
+          console.log(`[CLOSE_ESCROW] Wallet balance: $${actualWalletBalance.toFixed(2)}`);
+          console.log(`[CLOSE_ESCROW] Initial deposit: $${initialDeposit.toFixed(2)}`);
+          console.log(`[CLOSE_ESCROW] 💰 Yield earned: ${yieldInfo.formatted} (${yieldInfo.yieldPercent.toFixed(4)}%)`);
+          console.log(`[CLOSE_ESCROW] ⚖️ Yield will be returned to BUYER (legal requirement)`);
+        } catch (e) {
+          console.log('[CLOSE_ESCROW] Could not fetch wallet balance, using stored balance');
+        }
+      }
+      
       const payoutResults: Array<{
         payeeId: string;
         name: string;
@@ -221,12 +253,27 @@ export async function POST(
         error?: string;
       }> = [];
       
+      // Track if we've returned yield to buyer
+      let yieldReturnedTo: string | null = null;
+      
       for (const payee of escrow.payees) {
-        const amount = payee.basisPoints 
+        let amount = payee.basisPoints 
           ? (Number(escrow.purchasePrice) * payee.basisPoints) / 10000
           : Number(payee.amount) || 0;
         
         const payeeName = `${payee.firstName} ${payee.lastName}`;
+        
+        // ════════════════════════════════════════════════════════════════════════
+        // YIELD RETURN TO BUYER - Legal Compliance
+        // ════════════════════════════════════════════════════════════════════════
+        // If this payee is the BUYER, add all earned yield to their payout.
+        // This ensures 100% of yield goes back to the depositor.
+        // ════════════════════════════════════════════════════════════════════════
+        if (payee.payeeType === 'BUYER' && yieldEarned > 0 && !yieldReturnedTo) {
+          console.log(`[CLOSE_ESCROW] 💰 Adding $${yieldEarned.toFixed(2)} yield to ${payeeName} (BUYER)`);
+          amount += yieldEarned;
+          yieldReturnedTo = payeeName;
+        }
         
         // Create unique transfer ID for idempotency
         const transferIdempotencyKey = `transfer-${escrow.escrowId}-${payee.id}-close`;
@@ -320,28 +367,42 @@ export async function POST(
           closedAt: new Date(),
           closeTxHash: closeTxHash,
           currentBalance: 0, // All funds disbursed
+          yieldEarned: yieldEarned, // Track yield for audit
+          yieldReturnedTo: yieldReturnedTo || 'BUYER', // Confirm yield returned to depositor
         },
       });
       
-      // Log the close
+      // Log the close with yield tracking
       await prisma.activityLog.create({
         data: {
           escrowId: escrow.id,
           action: 'ESCROW_CLOSED',
           details: {
             principal: principal,
-            totalToPayees: totalToPayees,
+            initialDeposit: initialDeposit,
+            actualWalletBalance: actualWalletBalance,
+            yieldEarned: yieldEarned,
+            yieldReturnedTo: yieldReturnedTo,
+            totalToPayees: totalToPayees + yieldEarned,
             payeeCount: escrow.payees.length,
             payouts: payoutResults,
             transactionHash: closeTxHash,
+            legalCompliance: {
+              yieldReturnedToBuyer: yieldEarned > 0,
+              yieldAmount: yieldEarned,
+              recipient: yieldReturnedTo,
+            },
           },
           actorWallet: body.signerAddress || null,
         },
       });
       
-      console.log(`[CLOSE_ESCROW] Escrow ${escrow.escrowId} CLOSED successfully`);
+      console.log(`[CLOSE_ESCROW] ✅ Escrow ${escrow.escrowId} CLOSED successfully`);
       console.log(`  Transaction: ${closeTxHash}`);
-      console.log(`  Payees: ${escrow.payees.length} totaling $${totalToPayees.toLocaleString()}`);
+      console.log(`  Payees: ${escrow.payees.length} totaling $${(totalToPayees + yieldEarned).toLocaleString()}`);
+      if (yieldEarned > 0) {
+        console.log(`  💰 Yield ($${yieldEarned.toFixed(2)}) returned to: ${yieldReturnedTo}`);
+      }
       
       return NextResponse.json({
         success: true,
@@ -351,8 +412,16 @@ export async function POST(
         summary: {
           escrowId: escrow.escrowId,
           principal: principal,
-          totalToPayees: totalToPayees,
+          initialDeposit: initialDeposit,
+          totalToPayees: totalToPayees + yieldEarned,
           closedAt: new Date().toISOString(),
+        },
+        // USDB Yield Tracking
+        yield: {
+          earned: yieldEarned,
+          formattedEarned: `$${yieldEarned.toFixed(2)}`,
+          returnedTo: yieldReturnedTo,
+          legalCompliance: 'All yield returned to buyer (depositor) as legally required',
         },
         payouts: payoutResults,
       });

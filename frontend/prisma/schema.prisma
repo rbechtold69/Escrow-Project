@@ -126,8 +126,18 @@ model Escrow {
   status          EscrowStatus @default(CREATED)
   
   // Financial tracking (we track amounts, not bank details)
-  initialDeposit  Decimal?     @db.Decimal(18, 6)  // USDC deposited
-  currentBalance  Decimal?     @db.Decimal(18, 6)  // Current USDC balance (1:1 liquid)
+  initialDeposit  Decimal?     @db.Decimal(18, 6)  // Initial USDB deposited
+  currentBalance  Decimal?     @db.Decimal(18, 6)  // Current USDB balance (includes yield)
+  
+  // ══════════════════════════════════════════════════════════════════════════
+  // YIELD TRACKING (USDB earns yield while in escrow)
+  // ══════════════════════════════════════════════════════════════════════════
+  // LEGAL REQUIREMENT: 100% of yield MUST go to the buyer (depositor).
+  // Neither EscrowPayi nor the Escrow Agent can keep any yield.
+  // We track this to ensure full compliance at escrow close.
+  // ══════════════════════════════════════════════════════════════════════════
+  yieldEarned     Decimal?     @db.Decimal(18, 6)  // Yield accrued (currentBalance - initialDeposit)
+  yieldReturnedTo String?      // "BUYER" - confirms yield was returned to depositor
   
   // Transaction hashes (public blockchain data)
   depositTxHash   String?

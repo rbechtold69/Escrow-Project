@@ -270,6 +270,12 @@ class BridgeComplianceClient {
    * Create a virtual account for receiving wire/ACH deposits
    * The destination is the deal's segregated custodial wallet
    * 
+   * Uses USDB (yield-earning stablecoin) instead of USDC.
+   * 
+   * LEGAL COMPLIANCE: 100% of yield earned on USDB must be returned
+   * to the buyer (depositor) at escrow close. Neither EscrowPayi nor
+   * the Escrow Agent can legally keep any yield.
+   * 
    * API: POST /v0/customers/{customer_id}/virtual_accounts
    * Docs: https://docs.bridge.xyz/docs/virtual-accounts
    */
@@ -298,11 +304,11 @@ class BridgeComplianceClient {
           payment_rail: 'wire', // Can also be 'ach'
         },
         destination: {
-          currency: 'usdc',
-          payment_rail: 'base', // USDC on Base
+          currency: 'usdb',  // USDB for yield-earning (not USDC)
+          payment_rail: 'base', // USDB on Base
           address: params.destinationWalletAddress,
         },
-        // TODO: Check Bridge docs for beneficiary_name format requirements
+        // NOTE: No developer_fee_percent - all yield goes to buyer
         beneficiary_name: `EscrowPayi FBO ${params.buyerName}`,
         external_id: params.dealId,
         metadata: {
@@ -366,6 +372,8 @@ class BridgeComplianceClient {
    * Initiate a payout from the deal's custodial wallet to an external account
    * Uses RTP (Real-Time Payments) for instant settlement when possible
    * 
+   * Converts USDB (yield-earning) to USD for the bank transfer.
+   * 
    * API: POST /v0/transfers/payouts
    * Docs: https://docs.bridge.xyz/docs/payouts
    */
@@ -390,21 +398,20 @@ class BridgeComplianceClient {
       'POST',
       '/v0/transfers/payouts',
       {
-        // Source: The deal's custodial wallet
+        // Source: The deal's custodial wallet (USDB)
         source: {
           customer_id: params.customerId,
           wallet_id: params.sourceWalletId,
-          currency: 'usdc',
+          currency: 'usdb',  // USDB (yield-earning stablecoin)
           payment_rail: 'base',
         },
-        // Destination: Recipient's bank account
+        // Destination: Recipient's bank account (USD)
         destination: {
           external_account_id: params.destinationExternalAccountId,
           currency: 'usd',
           payment_rail: params.paymentRail,
         },
         amount: params.amount.toFixed(2),
-        // TODO: Check Bridge docs for memo/reference field name
         memo: params.memo,
         metadata: params.metadata,
       },
@@ -960,10 +967,17 @@ export async function disburseFunds(
 /**
  * Get current balance of a deal's segregated wallet
  * Useful for UI display and validation
+ * 
+ * Returns both USDB (yield-earning) and USDC balances.
+ * Also calculates yield earned vs initial deposit.
  */
 export async function getDealBalance(dealId: string): Promise<{
+  usdbBalance: number;
   usdcBalance: number;
-  usdBalance: number;
+  totalBalance: number;
+  initialDeposit: number;
+  yieldEarned: number;
+  yieldPercent: number;
   lastUpdated: Date;
 }> {
   const bridge = new BridgeComplianceClient();
@@ -981,11 +995,24 @@ export async function getDealBalance(dealId: string): Promise<{
     walletId: escrow.bridgeWalletId,
   });
   
+  const usdbBalance = balances.balances.find(b => b.currency === 'usdb');
   const usdcBalance = balances.balances.find(b => b.currency === 'usdc');
   
+  const usdb = parseFloat(usdbBalance?.available || '0');
+  const usdc = parseFloat(usdcBalance?.available || '0');
+  const total = usdb + usdc;
+  
+  const initialDeposit = Number(escrow.initialDeposit || escrow.purchasePrice || 0);
+  const yieldEarned = Math.max(0, total - initialDeposit);
+  const yieldPercent = initialDeposit > 0 ? (yieldEarned / initialDeposit) * 100 : 0;
+  
   return {
-    usdcBalance: parseFloat(usdcBalance?.available || '0'),
-    usdBalance: parseFloat(usdcBalance?.available || '0'), // USDC is 1:1 with USD
+    usdbBalance: usdb,
+    usdcBalance: usdc,
+    totalBalance: total,
+    initialDeposit: initialDeposit,
+    yieldEarned: yieldEarned,
+    yieldPercent: yieldPercent,
     lastUpdated: new Date(),
   };
 }

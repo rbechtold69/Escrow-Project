@@ -62,6 +62,39 @@ export interface BridgeVirtualAccount {
   };
 }
 
+export interface VirtualAccountEvent {
+  id: string;
+  type: 'funds_received' | 'payment_submitted' | 'payment_processed' | 'funds_scheduled' | 'in_review' | 'refunded' | 'microdeposit';
+  currency: string;
+  created_at: string;
+  customer_id: string;
+  virtual_account_id: string;
+  amount: string;
+  developer_fee_amount?: string;
+  exchange_fee_amount?: string;
+  subtotal_amount?: string;
+  gas_fee?: string;
+  deposit_id?: string;
+  source?: {
+    payment_rail: string;
+    description?: string;
+    sender_name?: string;
+    sender_bank_routing_number?: string;
+    trace_number?: string;
+  };
+  destination_tx_hash?: string;
+  receipt?: {
+    initial_amount: string;
+    developer_fee: string;
+    exchange_fee: string;
+    subtotal_amount: string;
+    url?: string;
+    gas_fee: string;
+    final_amount: string;
+    destination_tx_hash?: string;
+  };
+}
+
 export interface BridgeExternalAccount {
   id: string;
   customer_id: string;
@@ -224,11 +257,18 @@ export class BridgeClient {
   // ════════════════════════════════════════════════════════════════════════
 
   /**
-   * Create a virtual account that receives USD and deposits USDC to a wallet
+   * Create a virtual account that receives USD and deposits USDB to a wallet
+   * 
+   * USDB is Bridge's yield-earning stablecoin. It's 1:1 with USD but earns
+   * interest while funds are held in escrow.
+   * 
+   * LEGAL COMPLIANCE: 100% of yield earned MUST be returned to the buyer
+   * (depositor) at escrow close. Neither EscrowPayi nor the Escrow Agent
+   * can legally retain any yield on escrowed funds.
    * 
    * @param escrowId - Unique escrow identifier (used as idempotency key)
-   * @param walletId - Bridge wallet ID to receive the converted USDC
-   * @param developerFeePercent - Optional fee percentage (e.g., "1.0" for 1%)
+   * @param walletId - Bridge wallet ID to receive the converted USDB
+   * @param developerFeePercent - NOT USED for escrow (yield goes to buyer)
    */
   async createVirtualAccount(
     escrowId: string,
@@ -241,14 +281,14 @@ export class BridgeClient {
       },
       destination: {
         payment_rail: 'base',
-        currency: 'usdc',
+        currency: 'usdb',  // USDB for yield-earning
         bridge_wallet_id: walletId,
       },
     };
 
-    if (developerFeePercent) {
-      body.developer_fee_percent = developerFeePercent;
-    }
+    // NOTE: We intentionally do NOT set developer_fee_percent for escrow
+    // All yield must go to the buyer (depositor) per legal requirements
+    // developerFeePercent is ignored for compliance
 
     return this.request<BridgeVirtualAccount>(
       'POST',
@@ -275,6 +315,29 @@ export class BridgeClient {
     return this.request<{ data: BridgeVirtualAccount[] }>(
       'GET',
       `/v0/customers/${this.customerId}/virtual_accounts`
+    );
+  }
+
+  /**
+   * Get virtual account activity/history
+   * 
+   * Returns all deposit events for a virtual account including:
+   * - funds_received: Fiat funds arrived
+   * - payment_submitted: Crypto conversion in progress
+   * - payment_processed: Funds delivered on-chain (final state)
+   * - funds_scheduled: ACH funds in transit
+   * - in_review: Under manual review
+   * - refunded: Funds returned to sender
+   * 
+   * @param virtualAccountId - Virtual account ID
+   */
+  async getVirtualAccountHistory(virtualAccountId: string): Promise<{
+    count: number;
+    data: VirtualAccountEvent[];
+  }> {
+    return this.request<{ count: number; data: VirtualAccountEvent[] }>(
+      'GET',
+      `/v0/customers/${this.customerId}/virtual_accounts/${virtualAccountId}/history`
     );
   }
 
@@ -364,6 +427,8 @@ export class BridgeClient {
   /**
    * Transfer funds from a Bridge wallet to an external bank account (ACH/Wire)
    * 
+   * Converts USDB to USD for the bank transfer.
+   * 
    * @param transferId - Unique transfer identifier (used as idempotency key)
    * @param params - Transfer details
    */
@@ -384,7 +449,7 @@ export class BridgeClient {
         on_behalf_of: this.customerId,
         source: {
           payment_rail: 'bridge_wallet',
-          currency: 'usdc',
+          currency: 'usdb',  // USDB (yield-earning stablecoin)
           bridge_wallet_id: params.sourceWalletId,
         },
         destination: {
@@ -398,7 +463,10 @@ export class BridgeClient {
   }
 
   /**
-   * Transfer USDC directly to a crypto wallet address
+   * Transfer USDB/USDC directly to a crypto wallet address
+   * 
+   * Note: For crypto payouts, we convert USDB → USDC for the recipient
+   * since USDC is more widely accepted/liquid.
    * 
    * @param transferId - Unique transfer identifier (used as idempotency key)
    * @param params - Transfer details
@@ -420,12 +488,12 @@ export class BridgeClient {
         on_behalf_of: this.customerId,
         source: {
           payment_rail: 'bridge_wallet',
-          currency: 'usdc',
+          currency: 'usdb',  // Source is USDB (yield-earning)
           bridge_wallet_id: params.sourceWalletId,
         },
         destination: {
           payment_rail: params.destinationChain || 'base',
-          currency: 'usdc',
+          currency: 'usdc',  // Convert to USDC for recipient (more liquid)
           to_address: params.destinationAddress,
         },
       },
@@ -473,20 +541,63 @@ export function getBridgeClient(): BridgeClient {
 
 /**
  * Format wallet balance for display
+ * 
+ * Now supports both USDB (yield-earning) and USDC balances.
+ * USDB is the primary holding currency for escrow funds.
  */
 export function formatWalletBalance(wallet: BridgeWallet): {
+  usdb: number;
   usdc: number;
+  total: number;
   formatted: string;
 } {
+  const usdbBalance = wallet.balances?.find(b => b.currency === 'usdb');
   const usdcBalance = wallet.balances?.find(b => b.currency === 'usdc');
-  const balance = parseFloat(usdcBalance?.balance || '0');
+  
+  const usdb = parseFloat(usdbBalance?.balance || '0');
+  const usdc = parseFloat(usdcBalance?.balance || '0');
+  const total = usdb + usdc; // USDB and USDC are both 1:1 with USD
   
   return {
-    usdc: balance,
+    usdb,
+    usdc,
+    total,
     formatted: new Intl.NumberFormat('en-US', {
       style: 'currency',
       currency: 'USD',
-    }).format(balance),
+    }).format(total),
+  };
+}
+
+/**
+ * Calculate yield earned on escrow funds
+ * 
+ * LEGAL REQUIREMENT: 100% of yield must be returned to the buyer.
+ * This function calculates the difference between current balance
+ * and initial deposit.
+ * 
+ * @param currentBalance - Current wallet balance (USDB)
+ * @param initialDeposit - Original deposit amount
+ * @returns Yield earned (must go to buyer at close)
+ */
+export function calculateYieldEarned(
+  currentBalance: number,
+  initialDeposit: number
+): {
+  yieldAmount: number;
+  yieldPercent: number;
+  formatted: string;
+} {
+  const yieldAmount = Math.max(0, currentBalance - initialDeposit);
+  const yieldPercent = initialDeposit > 0 ? (yieldAmount / initialDeposit) * 100 : 0;
+  
+  return {
+    yieldAmount,
+    yieldPercent,
+    formatted: new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD',
+    }).format(yieldAmount),
   };
 }
 
