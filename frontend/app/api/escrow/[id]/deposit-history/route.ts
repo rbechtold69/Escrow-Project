@@ -7,8 +7,8 @@
  * 
  * Events include:
  * - funds_received: Fiat funds arrived at virtual account
- * - payment_submitted: USDB conversion in progress
- * - payment_processed: USDB delivered to wallet (final)
+ * - payment_submitted: Funds being processed
+ * - payment_processed: Funds secured in escrow (final)
  * - funds_scheduled: ACH funds in transit
  * - in_review: Under manual review
  * - refunded: Funds returned to sender
@@ -94,8 +94,8 @@ export async function GET(
           totalDeposited: Number(escrow.initialDeposit || escrow.purchasePrice || 0),
           currentBalance: Number(escrow.currentBalance || escrow.initialDeposit || escrow.purchasePrice || 0),
           yieldEarned: 0,
-          currency: 'USDB',
-          depositCount: escrow.fundedAt ? 1 : 0,
+        currency: 'USD',
+        depositCount: escrow.fundedAt ? 1 : 0,
           lastDepositAt: escrow.fundedAt?.toISOString() || null,
         },
         message: 'Demo mode - showing stored data',
@@ -154,13 +154,13 @@ export async function GET(
         yieldEarned: yieldInfo.yieldAmount,
         yieldPercent: yieldInfo.yieldPercent,
         formattedYield: yieldInfo.formatted,
-        currency: 'USDB',
+        currency: 'USD',
         depositCount: completedDeposits.length,
         lastDepositAt: completedDeposits.length > 0 
           ? completedDeposits[0].created_at 
           : null,
         // Legal compliance note
-        yieldNote: 'All yield earned belongs to the buyer (depositor) and will be returned at escrow close.',
+        interestNote: 'All interest earned belongs to the buyer and will be returned at escrow close.',
       },
     });
     
@@ -177,8 +177,8 @@ export async function GET(
 function getEventStatus(type: string): string {
   switch (type) {
     case 'funds_received': return 'Funds Received';
-    case 'payment_submitted': return 'Converting to USDB';
-    case 'payment_processed': return 'Deposit Complete';
+    case 'payment_submitted': return 'Processing';
+    case 'payment_processed': return 'Secured in Escrow';
     case 'funds_scheduled': return 'Funds In Transit';
     case 'in_review': return 'Under Review';
     case 'refunded': return 'Refunded';

@@ -561,7 +561,7 @@ export default function EscrowDetailPage() {
                   {formatCurrency(escrow.currentBalance || 0)}
                 </div>
                 <p className="text-blue-100 text-sm mt-1">
-                  Held in USDB (Yield-Earning)
+                  Held Securely in Escrow
                 </p>
                 <div className="mt-4 pt-4 border-t border-blue-400/30">
                   <div className="flex justify-between text-sm">
@@ -571,7 +571,7 @@ export default function EscrowDetailPage() {
                   {depositHistory?.summary?.yieldEarned !== undefined && depositHistory.summary.yieldEarned > 0 && (
                     <div className="flex justify-between text-sm mt-1">
                       <span className="text-blue-100 flex items-center gap-1">
-                        💰 Yield Earned
+                        💰 Interest Earned
                       </span>
                       <span className="text-green-200 font-medium">
                         +{depositHistory.summary.formattedYield}
@@ -583,11 +583,11 @@ export default function EscrowDetailPage() {
                     <span>{formatCurrency(escrow.purchasePrice)}</span>
                   </div>
                 </div>
-                {/* Yield Notice */}
+                {/* Interest Notice */}
                 {depositHistory?.summary?.yieldEarned !== undefined && depositHistory.summary.yieldEarned > 0 && (
                   <div className="mt-3 pt-3 border-t border-blue-400/30">
                     <p className="text-xs text-blue-200">
-                      ⚖️ All yield ({depositHistory.summary.formattedYield}) will be returned to the buyer at close as legally required.
+                      ⚖️ All interest earned ({depositHistory.summary.formattedYield}) will be returned to the buyer at close.
                     </p>
                   </div>
                 )}

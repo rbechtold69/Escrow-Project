@@ -426,7 +426,7 @@ export default function NewEscrowPage() {
             <CardHeader className="pb-3">
               <CardTitle className="flex items-center gap-2 text-lg">
                 <TrendingUp className="h-5 w-5" />
-                Buyer's Yield Preference
+                Interest Earnings Option
               </CardTitle>
               <CardDescription>
                 Allow the buyer to earn interest while funds are held in escrow
@@ -444,13 +444,25 @@ export default function NewEscrowPage() {
                     )}
                   </div>
                   <div>
-                    <p className="font-medium text-gray-900">
-                      {formData.yieldEnabled ? 'Earn Yield (USDB)' : 'Standard Hold (USDC)'}
-                    </p>
+                    <div className="flex items-center gap-2">
+                      <p className="font-medium text-gray-900">
+                        {formData.yieldEnabled ? 'Earn Interest' : 'Standard Hold'}
+                      </p>
+                      {formData.yieldEnabled && (
+                        <a 
+                          href="/learn/yield" 
+                          target="_blank"
+                          className="text-xs text-blue-600 hover:text-blue-800 underline"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          Learn more
+                        </a>
+                      )}
+                    </div>
                     <p className="text-sm text-gray-500">
                       {formData.yieldEnabled 
                         ? 'Funds earn ~4-5% APY while in escrow' 
-                        : 'Funds held as stable USDC, no yield'
+                        : 'Funds held securely, no interest earned'
                       }
                     </p>
                   </div>
@@ -472,7 +484,7 @@ export default function NewEscrowPage() {
                     }
                   `}
                 >
-                  <span className="sr-only">Enable yield earning</span>
+                  <span className="sr-only">Enable interest earning</span>
                   <span
                     className={`
                       pointer-events-none inline-block h-6 w-6 transform rounded-full 
@@ -487,19 +499,19 @@ export default function NewEscrowPage() {
               <div className={`mt-4 p-4 rounded-lg ${formData.yieldEnabled ? 'bg-green-50 border border-green-200' : 'bg-blue-50 border border-blue-200'}`}>
                 {formData.yieldEnabled ? (
                   <>
-                    <p className="text-sm text-green-800 font-medium mb-1">💰 Yield-Earning Enabled</p>
+                    <p className="text-sm text-green-800 font-medium mb-1">💰 Interest-Earning Enabled</p>
                     <p className="text-sm text-green-700">
-                      Funds will be converted to USDB, a yield-earning stablecoin backed 1:1 by USD.
-                      <strong> All yield earned will be returned to the buyer at escrow close.</strong> 
-                      Neither you nor EscrowPayi keeps any of it.
+                      Escrowed funds will earn interest through our FDIC-eligible banking partners.
+                      <strong> 100% of interest earned belongs to the buyer</strong> and will be 
+                      automatically added to their funds at escrow close.
                     </p>
                   </>
                 ) : (
                   <>
                     <p className="text-sm text-blue-800 font-medium mb-1">🛡️ Standard Hold</p>
                     <p className="text-sm text-blue-700">
-                      Funds will be converted to USDC, a standard stablecoin backed 1:1 by USD.
-                      No yield is earned, but some buyers prefer the familiarity of USDC.
+                      Funds will be held securely with no interest earned. 
+                      Some buyers prefer this simpler option.
                     </p>
                   </>
                 )}
@@ -577,7 +589,7 @@ export default function NewEscrowPage() {
               </Button>
             </div>
 
-            {/* Yield Status Banner */}
+            {/* Interest Status Banner */}
             <div className={`rounded-lg p-4 flex items-center gap-3 ${formData.yieldEnabled ? 'bg-green-50 border border-green-200' : 'bg-blue-50 border border-blue-200'}`}>
               {formData.yieldEnabled ? (
                 <>
@@ -585,8 +597,8 @@ export default function NewEscrowPage() {
                     <TrendingUp className="h-5 w-5 text-green-600" />
                   </div>
                   <div>
-                    <p className="font-medium text-green-800">Yield-Earning Enabled (USDB)</p>
-                    <p className="text-sm text-green-700">Buyer will earn interest while funds are in escrow. All yield returned at close.</p>
+                    <p className="font-medium text-green-800">Interest-Earning Enabled</p>
+                    <p className="text-sm text-green-700">Buyer will earn interest while funds are in escrow. All interest returned at close.</p>
                   </div>
                 </>
               ) : (
@@ -595,8 +607,8 @@ export default function NewEscrowPage() {
                     <Shield className="h-5 w-5 text-blue-600" />
                   </div>
                   <div>
-                    <p className="font-medium text-blue-800">Standard Hold (USDC)</p>
-                    <p className="text-sm text-blue-700">Funds held securely with no yield earned.</p>
+                    <p className="font-medium text-blue-800">Standard Hold</p>
+                    <p className="text-sm text-blue-700">Funds held securely with no interest earned.</p>
                   </div>
                 </>
               )}

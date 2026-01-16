@@ -246,16 +246,15 @@ export async function POST(request: NextRequest) {
         swiftCode: 'LEABOREA', // Lead Bank SWIFT code
         paymentMethods: wiringInstructions.paymentMethods,
       },
-      // Yield settings
-      yield: {
+      // Interest settings (internal use - not shown to users)
+      interestEarning: {
         enabled: yieldEnabled,
-        currency: yieldEnabled ? 'USDB' : 'USDC',
         description: yieldEnabled 
-          ? 'Your funds will earn yield while in escrow. All yield will be returned to you at close.'
-          : 'Your funds will be held as USDC (no yield). This is a stable, non-earning option.',
+          ? 'Your funds will earn interest while in escrow. All interest will be returned to you at close.'
+          : 'Your funds will be held securely with no interest earned.',
       },
       message: bridgeWallet 
-        ? `Escrow created with live Bridge.xyz integration (${yieldEnabled ? 'USDB - yield enabled' : 'USDC - no yield'})` 
+        ? `Escrow created successfully${yieldEnabled ? ' with interest-earning enabled' : ''}` 
         : 'Escrow created in demo mode',
     });
 
