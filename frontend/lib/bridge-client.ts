@@ -23,6 +23,59 @@
 // TYPES
 // ============================================================================
 
+// ════════════════════════════════════════════════════════════════════════════
+// CUSTOMER TYPES (KYB/KYC)
+// ════════════════════════════════════════════════════════════════════════════
+
+export interface BridgeBusinessCustomer {
+  id: string;
+  type: 'business';
+  business_name: string;
+  email: string;
+  created_at: string;
+  updated_at?: string;
+  endorsements?: Array<{
+    name: string;
+    status: 'approved' | 'pending' | 'incomplete' | 'rejected';
+    requirements?: {
+      complete: string[];
+      pending: string[];
+      missing: { all_of?: string[] } | null;
+      issues: string[];
+    };
+  }>;
+}
+
+export interface BridgeAssociatedPerson {
+  id: string;
+  customer_id: string;
+  first_name: string;
+  last_name: string;
+  email?: string;
+  title?: string;
+  is_control_person: boolean;
+  ownership_percentage?: number;
+  created_at: string;
+}
+
+export interface BridgeKycLink {
+  id: string;
+  full_name: string;
+  email: string;
+  type: 'individual' | 'business';
+  kyc_link: string;       // URL for identity verification
+  tos_link: string;       // URL for terms of service acceptance
+  kyc_status: 'not_started' | 'under_review' | 'incomplete' | 'approved' | 'rejected';
+  tos_status: 'pending' | 'approved';
+  rejection_reasons: string[];
+  created_at: string;
+  customer_id: string;
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// WALLET & ACCOUNT TYPES
+// ════════════════════════════════════════════════════════════════════════════
+
 export interface BridgeWallet {
   id: string;
   chain: string;
@@ -524,6 +577,183 @@ export class BridgeClient {
     return this.request<{ data: BridgeTransfer[] }>(
       'GET',
       '/v0/transfers'
+    );
+  }
+
+  // ════════════════════════════════════════════════════════════════════════
+  // BUSINESS CUSTOMERS (KYB)
+  // ════════════════════════════════════════════════════════════════════════
+
+  /**
+   * Create a Business Customer for an Escrow Company
+   * 
+   * This is Step 1 of the KYB process. After creating the customer,
+   * you must add associated persons and generate KYC links.
+   * 
+   * @param idempotencyKey - Unique key to prevent duplicate customers
+   * @param params - Business customer details
+   */
+  async createBusinessCustomer(
+    idempotencyKey: string,
+    params: {
+      companyName: string;
+      email: string;
+      einTaxId: string;
+      website?: string;
+      address: {
+        streetLine1: string;
+        streetLine2?: string;
+        city: string;
+        state: string;
+        postalCode: string;
+        country: string;
+      };
+    }
+  ): Promise<BridgeBusinessCustomer> {
+    return this.request<BridgeBusinessCustomer>(
+      'POST',
+      '/v0/customers',
+      {
+        type: 'business',
+        business_name: params.companyName,
+        email: params.email,
+        tax_identification_number: params.einTaxId,
+        website: params.website,
+        address: {
+          street_line_1: params.address.streetLine1,
+          street_line_2: params.address.streetLine2,
+          city: params.address.city,
+          subdivision: params.address.state,
+          postal_code: params.address.postalCode,
+          country: params.address.country || 'USA',
+        },
+      },
+      idempotencyKey
+    );
+  }
+
+  /**
+   * Get a customer by ID
+   */
+  async getCustomer(customerId: string): Promise<BridgeBusinessCustomer> {
+    return this.request<BridgeBusinessCustomer>(
+      'GET',
+      `/v0/customers/${customerId}`
+    );
+  }
+
+  // ════════════════════════════════════════════════════════════════════════
+  // ASSOCIATED PERSONS (Control Persons / UBOs)
+  // ════════════════════════════════════════════════════════════════════════
+
+  /**
+   * Add an Associated Person (Control Person/UBO) to a Business Customer
+   * 
+   * Bridge requires at least one control person for business customers.
+   * This is typically the Escrow Officer or company owner.
+   * 
+   * @param customerId - The Bridge Business Customer ID
+   * @param idempotencyKey - Unique key to prevent duplicates
+   * @param params - Person details
+   */
+  async addAssociatedPerson(
+    customerId: string,
+    idempotencyKey: string,
+    params: {
+      firstName: string;
+      lastName: string;
+      email?: string;
+      title: string;
+      isControlPerson?: boolean;
+      ownershipPercentage?: number;
+    }
+  ): Promise<BridgeAssociatedPerson> {
+    return this.request<BridgeAssociatedPerson>(
+      'POST',
+      `/v0/customers/${customerId}/associated_persons`,
+      {
+        first_name: params.firstName,
+        last_name: params.lastName,
+        email: params.email,
+        title: params.title,
+        is_control_person: params.isControlPerson ?? true,
+        ownership_percentage: params.ownershipPercentage,
+      },
+      idempotencyKey
+    );
+  }
+
+  /**
+   * List all associated persons for a customer
+   */
+  async listAssociatedPersons(customerId: string): Promise<{ data: BridgeAssociatedPerson[] }> {
+    return this.request<{ data: BridgeAssociatedPerson[] }>(
+      'GET',
+      `/v0/customers/${customerId}/associated_persons`
+    );
+  }
+
+  // ════════════════════════════════════════════════════════════════════════
+  // KYC LINKS (Hosted Identity Verification)
+  // ════════════════════════════════════════════════════════════════════════
+
+  /**
+   * Generate a KYC Link for a customer
+   * 
+   * This creates a hosted verification flow where the user can:
+   * 1. Accept Terms of Service (tos_link)
+   * 2. Complete identity verification with photo ID (kyc_link)
+   * 
+   * Bridge handles all PII collection securely - we never see the
+   * SSN, driver's license, or other sensitive documents.
+   * 
+   * @param idempotencyKey - Unique key to prevent duplicates
+   * @param params - KYC link parameters
+   */
+  async createKycLink(
+    idempotencyKey: string,
+    params: {
+      fullName: string;
+      email: string;
+      type: 'individual' | 'business';
+      customerId?: string;  // Optional: link to existing customer
+    }
+  ): Promise<BridgeKycLink> {
+    const body: Record<string, unknown> = {
+      full_name: params.fullName,
+      email: params.email,
+      type: params.type,
+    };
+
+    if (params.customerId) {
+      body.customer_id = params.customerId;
+    }
+
+    return this.request<BridgeKycLink>(
+      'POST',
+      '/v0/kyc_links',
+      body,
+      idempotencyKey
+    );
+  }
+
+  /**
+   * Get KYC Link status
+   */
+  async getKycLink(kycLinkId: string): Promise<BridgeKycLink> {
+    return this.request<BridgeKycLink>(
+      'GET',
+      `/v0/kyc_links/${kycLinkId}`
+    );
+  }
+
+  /**
+   * List all KYC links
+   */
+  async listKycLinks(): Promise<{ data: BridgeKycLink[] }> {
+    return this.request<{ data: BridgeKycLink[] }>(
+      'GET',
+      '/v0/kyc_links'
     );
   }
 }

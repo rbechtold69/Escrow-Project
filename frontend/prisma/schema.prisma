@@ -413,6 +413,155 @@ model ActivityLog {
 }
 
 // ============================================================================
+// ESCROW COMPANY (KYB - Know Your Business)
+// ============================================================================
+//
+// ⚠️  CRITICAL SECURITY DESIGN ⚠️
+//
+// This table tracks escrow companies that have been onboarded via Bridge.xyz.
+// Bridge handles all KYB verification and compliance.
+//
+// ❌ WE DO NOT STORE:
+//    - EIN/Tax ID numbers (after initial submission to Bridge)
+//    - SSNs of beneficial owners
+//    - Driver's license or ID document data
+//    - Any PII that could be used for identity theft
+//
+// ✅ WE DO STORE:
+//    - Bridge.xyz customer ID (tokenized reference)
+//    - Company name and public business info
+//    - KYB status from Bridge
+//    - Officer names (public info, not sensitive)
+//
+// ============================================================================
+
+model EscrowCompany {
+  id                  String              @id @default(cuid())
+  
+  // ══════════════════════════════════════════════════════════════════════════
+  // BRIDGE.XYZ TOKENIZED REFERENCES
+  // ══════════════════════════════════════════════════════════════════════════
+  // Bridge Customer ID for this business
+  bridgeCustomerId    String              @unique
+  
+  // ══════════════════════════════════════════════════════════════════════════
+  // COMPANY INFORMATION (Non-sensitive, public business data)
+  // ══════════════════════════════════════════════════════════════════════════
+  companyName         String
+  businessEmail       String
+  website             String?
+  
+  // Business address (public, not sensitive)
+  streetLine1         String
+  streetLine2         String?
+  city                String
+  state               String
+  postalCode          String
+  country             String              @default("USA")
+  
+  // ══════════════════════════════════════════════════════════════════════════
+  // KYB STATUS TRACKING
+  // ══════════════════════════════════════════════════════════════════════════
+  // We track the status from Bridge webhooks
+  kybStatus           KybStatus           @default(PENDING)
+  kybCompletedAt      DateTime?
+  rejectionReasons    String[]            @default([])
+  
+  // ══════════════════════════════════════════════════════════════════════════
+  // TIMESTAMPS
+  // ══════════════════════════════════════════════════════════════════════════
+  createdAt           DateTime            @default(now())
+  updatedAt           DateTime            @updatedAt
+  
+  // Relations
+  officers            EscrowOfficer[]
+  
+  @@index([bridgeCustomerId])
+  @@index([kybStatus])
+  @@index([companyName])
+}
+
+enum KybStatus {
+  PENDING           // Initial state, awaiting KYC link completion
+  UNDER_REVIEW      // Documents submitted, Bridge is reviewing
+  APPROVED          // Fully approved, can create virtual accounts
+  REJECTED          // KYB failed, see rejectionReasons
+  INCOMPLETE        // Missing information, needs more data
+}
+
+// ============================================================================
+// ESCROW OFFICER (Associated Person / UBO)
+// ============================================================================
+//
+// Officers are associated with an Escrow Company.
+// Bridge requires at least one Control Person for business customers.
+//
+// ❌ WE DO NOT STORE:
+//    - SSN (collected via Bridge's hosted KYC link)
+//    - Driver's license data
+//    - Date of birth (after initial submission)
+//
+// ============================================================================
+
+model EscrowOfficer {
+  id                  String              @id @default(cuid())
+  
+  // ══════════════════════════════════════════════════════════════════════════
+  // BRIDGE.XYZ REFERENCES
+  // ══════════════════════════════════════════════════════════════════════════
+  // Associated Person ID from Bridge
+  bridgePersonId      String?
+  
+  // ══════════════════════════════════════════════════════════════════════════
+  // OFFICER INFORMATION (Non-sensitive)
+  // ══════════════════════════════════════════════════════════════════════════
+  firstName           String
+  lastName            String
+  email               String?
+  title               String              // e.g., "Owner", "Director", "CEO"
+  
+  // Control person / UBO designation
+  isControlPerson     Boolean             @default(true)
+  ownershipPercentage Int?                // Percentage of ownership (if UBO)
+  
+  // ══════════════════════════════════════════════════════════════════════════
+  // KYC STATUS (for individual officer verification)
+  // ══════════════════════════════════════════════════════════════════════════
+  kycStatus           KycStatus           @default(NOT_STARTED)
+  kycLink             String?             // Bridge hosted KYC link
+  tosLink             String?             // Bridge TOS acceptance link
+  kycCompletedAt      DateTime?
+  
+  // ══════════════════════════════════════════════════════════════════════════
+  // WALLET (for platform access)
+  // ══════════════════════════════════════════════════════════════════════════
+  walletAddress       String?             // Coinbase Wallet for signing in
+  
+  // ══════════════════════════════════════════════════════════════════════════
+  // TIMESTAMPS
+  // ══════════════════════════════════════════════════════════════════════════
+  createdAt           DateTime            @default(now())
+  updatedAt           DateTime            @updatedAt
+  
+  // Relations
+  company             EscrowCompany       @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  companyId           String
+  
+  @@unique([companyId, email])
+  @@index([companyId])
+  @@index([bridgePersonId])
+  @@index([walletAddress])
+}
+
+enum KycStatus {
+  NOT_STARTED       // KYC link not yet visited
+  PENDING           // KYC link sent, awaiting completion
+  UNDER_REVIEW      // Documents submitted, Bridge reviewing
+  APPROVED          // Identity verified
+  REJECTED          // Verification failed
+}
+
+// ============================================================================
 // END OF SCHEMA
 // ============================================================================
 //
@@ -420,6 +569,7 @@ model ActivityLog {
 // ✅ No routing numbers stored
 // ✅ No account numbers stored
 // ✅ No SSNs stored
+// ✅ No EINs stored (after Bridge submission)
 // ✅ No credit card numbers stored
 // ✅ Only Bridge.xyz tokenized IDs for banking
 // ✅ Audit trail for all actions
