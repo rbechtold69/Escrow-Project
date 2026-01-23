@@ -207,11 +207,24 @@ export async function POST(
           );
         }
         
-        const sourceWalletId = bridgeWalletId || batch.bridgeWalletId;
+        // Get bridgeWalletId from: request body > batch > linked escrow
+        let sourceWalletId = bridgeWalletId || batch.bridgeWalletId;
+        
+        // If not set, try to get it from the linked escrow
+        if (!sourceWalletId && batch.escrowId) {
+          const linkedEscrow = await prisma.escrow.findUnique({
+            where: { id: batch.escrowId },
+            select: { bridgeWalletId: true, yieldEnabled: true },
+          });
+          
+          if (linkedEscrow?.bridgeWalletId) {
+            sourceWalletId = linkedEscrow.bridgeWalletId;
+          }
+        }
         
         if (!sourceWalletId) {
           return NextResponse.json(
-            { error: 'Bridge wallet ID is required for execution' },
+            { error: 'Bridge wallet ID is required for execution. Please ensure the escrow has been properly set up with Bridge.xyz.' },
             { status: 400 }
           );
         }
