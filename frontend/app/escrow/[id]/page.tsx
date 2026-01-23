@@ -560,28 +560,59 @@ export default function EscrowDetailPage() {
           {/* Sidebar */}
           <div className="space-y-6">
             {/* Escrow Balance Card */}
-            <Card className="bg-gradient-to-br from-blue-500 to-blue-600 text-white">
+            <Card className={cn(
+              "text-white",
+              hasFunds 
+                ? "bg-gradient-to-br from-blue-500 to-blue-600"
+                : "bg-gradient-to-br from-amber-500 to-orange-500"
+            )}>
               <CardHeader className="pb-2">
                 <CardTitle className="text-lg font-medium flex items-center gap-2">
                   <DollarSign className="h-5 w-5" />
-                  Escrow Balance
+                  {hasFunds ? 'Escrow Balance' : 'Expected Escrow Amount'}
                 </CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="text-3xl font-bold">
-                  {formatCurrency(escrow.currentBalance || 0)}
+                  {hasFunds 
+                    ? formatCurrency(escrow.currentBalance || 0)
+                    : formatCurrency(totalToPayees || escrow.purchasePrice || 0)
+                  }
                 </div>
-                <p className="text-blue-100 text-sm mt-1">
-                  Held Securely in Escrow
+                <p className={cn("text-sm mt-1", hasFunds ? "text-blue-100" : "text-amber-100")}>
+                  {hasFunds 
+                    ? 'Held Securely in Escrow'
+                    : '⏳ Awaiting Buyer Wire Transfer'
+                  }
                 </p>
-                <div className="mt-4 pt-4 border-t border-blue-400/30">
-                  <div className="flex justify-between text-sm">
-                    <span className="text-blue-100">Initial Deposit</span>
-                    <span>{formatCurrency(escrow.initialDeposit || escrow.depositAmount || 0)}</span>
+                
+                {/* Awaiting Funds Notice */}
+                {!hasFunds && hasPayees && (
+                  <div className="mt-3 p-3 bg-white/20 rounded-lg">
+                    <p className="text-sm font-medium">Ready to Fund</p>
+                    <p className="text-xs text-amber-100 mt-1">
+                      {escrow.payees.length} payees configured for {formatCurrency(totalToPayees)}.
+                      Waiting for buyer to wire funds.
+                    </p>
                   </div>
+                )}
+                
+                <div className={cn("mt-4 pt-4 border-t", hasFunds ? "border-blue-400/30" : "border-amber-400/30")}>
+                  {hasFunds && (
+                    <div className="flex justify-between text-sm">
+                      <span className={hasFunds ? "text-blue-100" : "text-amber-100"}>Initial Deposit</span>
+                      <span>{formatCurrency(escrow.initialDeposit || escrow.depositAmount || 0)}</span>
+                    </div>
+                  )}
+                  {!hasFunds && hasPayees && (
+                    <div className="flex justify-between text-sm">
+                      <span className="text-amber-100">To Disburse</span>
+                      <span>{formatCurrency(totalToPayees)}</span>
+                    </div>
+                  )}
                   {depositHistory?.summary?.yieldEarned !== undefined && depositHistory.summary.yieldEarned > 0 && (
                     <div className="flex justify-between text-sm mt-1">
-                      <span className="text-blue-100 flex items-center gap-1">
+                      <span className={cn("flex items-center gap-1", hasFunds ? "text-blue-100" : "text-amber-100")}>
                         💰 Interest Earned
                       </span>
                       <span className="text-green-200 font-medium">
@@ -590,9 +621,15 @@ export default function EscrowDetailPage() {
                     </div>
                   )}
                   <div className="flex justify-between text-sm mt-1">
-                    <span className="text-blue-100">Purchase Price</span>
+                    <span className={hasFunds ? "text-blue-100" : "text-amber-100"}>Purchase Price</span>
                     <span>{formatCurrency(escrow.purchasePrice)}</span>
                   </div>
+                  {hasPayees && (
+                    <div className="flex justify-between text-sm mt-1">
+                      <span className={hasFunds ? "text-blue-100" : "text-amber-100"}>Payees</span>
+                      <span>{escrow.payees.length} recipients</span>
+                    </div>
+                  )}
                 </div>
                 {/* Interest Notice */}
                 {depositHistory?.summary?.yieldEarned !== undefined && depositHistory.summary.yieldEarned > 0 && (
