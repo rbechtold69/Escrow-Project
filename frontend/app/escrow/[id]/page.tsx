@@ -335,7 +335,18 @@ export default function EscrowDetailPage() {
 
   const status = getStatusConfig(escrow.status);
   const StatusIcon = status.icon;
-  const canClose = escrow.status === 'FUNDS_RECEIVED' && escrow.payees.length > 0;
+  
+  // Can initiate close if:
+  // - Status is FUNDS_RECEIVED or READY_TO_CLOSE (payees configured)
+  // - Has payees
+  // - Has funds (balance > 0)
+  const hasFunds = (escrow.currentBalance || 0) > 0;
+  const hasPayees = escrow.payees.length > 0;
+  const isReadyStatus = ['FUNDS_RECEIVED', 'READY_TO_CLOSE'].includes(escrow.status);
+  const canClose = isReadyStatus && hasPayees && hasFunds;
+  
+  // Show the close panel (even if can't close yet) when payees are set up
+  const showClosePanel = hasPayees && ['CREATED', 'FUNDS_RECEIVED', 'READY_TO_CLOSE', 'CLOSING'].includes(escrow.status);
 
   // Calculate total to payees
   const totalToPayees = escrow.payees.reduce((sum, p) => {
@@ -734,7 +745,7 @@ export default function EscrowDetailPage() {
             )}
 
             {/* Multisig Close Flow */}
-            {(canClose || escrow.status === 'CLOSING') && (
+            {showClosePanel && (
               <MultisigSigning
                 escrowId={escrow.id}
                 escrowNumber={escrow.escrowId}
@@ -747,6 +758,8 @@ export default function EscrowDetailPage() {
                 onSign={handleSign}
                 onExecute={handleExecute}
                 onRefresh={handleRefresh}
+                canClose={canClose}
+                hasFunds={hasFunds}
               />
             )}
 

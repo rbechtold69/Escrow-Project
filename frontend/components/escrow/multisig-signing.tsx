@@ -75,6 +75,8 @@ interface MultisigSigningProps {
   onSign: () => Promise<void>;
   onExecute: () => Promise<void>;
   onRefresh: () => void;
+  canClose?: boolean;    // Whether the escrow can be closed (has funds + payees)
+  hasFunds?: boolean;    // Whether funds have been deposited
 }
 
 // ============================================================
@@ -94,6 +96,8 @@ export function MultisigSigning({
   onSign,
   onExecute,
   onRefresh,
+  canClose: canCloseProp,
+  hasFunds: hasFundsProp,
 }: MultisigSigningProps) {
   const { address } = useAccount();
   const { toast } = useToast();
@@ -152,10 +156,12 @@ export function MultisigSigning({
   const isClosing = status === 'CLOSING';
   const isClosed = status === 'CLOSED';
   const hasCorrectStatus = status === 'FUNDS_RECEIVED' || status === 'READY_TO_CLOSE';
+  const hasFunds = hasFundsProp ?? (currentBalance > 0);
+  const awaitingFunds = !hasFunds && ['CREATED', 'READY_TO_CLOSE'].includes(status);
   
   // Safety check: payee amounts must exactly match escrow balance
   const balanceMatches = Math.abs(totalDisbursement - currentBalance) < 0.01; // Allow for tiny floating point differences
-  const canInitiate = hasCorrectStatus && balanceMatches && payeeCount > 0;
+  const canInitiate = canCloseProp ?? (hasCorrectStatus && balanceMatches && payeeCount > 0 && hasFunds);
   const balanceDifference = currentBalance - totalDisbursement;
 
   if (isClosed) {
@@ -193,8 +199,20 @@ export function MultisigSigning({
                 {isSingleApproval ? 'Single Approval' : 'Multi-Approval Required'}
               </CardTitle>
             </div>
-            <Badge variant={isClosing ? "secondary" : canInitiate ? "default" : "outline"} className={cn(canInitiate && !isClosing && "bg-green-100 text-green-700")}>
-              {isClosing ? (isSingleApproval ? 'Ready to Execute' : 'Pending Signatures') : canInitiate ? '✓ Ready to Close' : 'Configure Payees'}
+            <Badge 
+              variant={isClosing ? "secondary" : canInitiate ? "default" : "outline"} 
+              className={cn(
+                canInitiate && !isClosing && "bg-green-100 text-green-700",
+                awaitingFunds && "bg-amber-100 text-amber-700"
+              )}
+            >
+              {isClosing 
+                ? (isSingleApproval ? 'Ready to Execute' : 'Pending Signatures') 
+                : awaitingFunds
+                  ? '⏳ Awaiting Funds'
+                  : canInitiate 
+                    ? '✓ Ready to Close' 
+                    : 'Configure Payees'}
             </Badge>
           </div>
           <CardDescription>
@@ -309,8 +327,24 @@ export function MultisigSigning({
             </div>
           )}
 
+          {/* Warning when awaiting funds */}
+          {awaitingFunds && !isClosing && (
+            <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg">
+              <div className="flex items-start gap-2">
+                <Clock className="h-4 w-4 text-amber-600 mt-0.5 flex-shrink-0" />
+                <div className="text-sm">
+                  <p className="font-medium text-amber-800">Awaiting Funds</p>
+                  <p className="text-amber-600">
+                    Buyer needs to wire funds to the escrow account before you can close.
+                    {payeeCount > 0 && ` ${payeeCount} payee${payeeCount > 1 ? 's' : ''} ready to receive ${totalDisbursement > 0 ? `$${totalDisbursement.toLocaleString()}` : 'funds'}.`}
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Warning when no payees */}
-          {hasCorrectStatus && !isClosing && payeeCount === 0 && (
+          {!awaitingFunds && !isClosing && payeeCount === 0 && (
             <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg">
               <div className="flex items-start gap-2">
                 <AlertCircle className="h-4 w-4 text-slate-500 mt-0.5 flex-shrink-0" />
@@ -341,8 +375,19 @@ export function MultisigSigning({
         </CardContent>
 
         <CardFooter className="flex flex-col gap-2">
-          {/* Initial State: Show button (enabled only when amounts match) */}
-          {hasCorrectStatus && !isClosing && (
+          {/* Awaiting Funds State */}
+          {awaitingFunds && !isClosing && (
+            <Button 
+              className="w-full bg-amber-100 text-amber-800 hover:bg-amber-200 cursor-not-allowed"
+              disabled={true}
+            >
+              <Clock className="h-4 w-4 mr-2" />
+              Awaiting Funds to Close
+            </Button>
+          )}
+
+          {/* Initial State: Show button (enabled only when amounts match and has funds) */}
+          {!awaitingFunds && (hasCorrectStatus || hasFunds) && !isClosing && (
             <Button 
               onClick={() => openConfirmDialog('initiate')}
               className={cn(
