@@ -75,6 +75,7 @@ export default function HomePage() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [escrowToDelete, setEscrowToDelete] = useState<Escrow | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [forceDeleteRequired, setForceDeleteRequired] = useState(false);
   const [stats, setStats] = useState({
     totalEscrows: 0,
     activeEscrows: 0,
@@ -160,17 +161,29 @@ export default function HomePage() {
     setDeleteDialogOpen(true);
   };
 
-  const handleDeleteConfirm = async () => {
+  const handleDeleteConfirm = async (useForce = false) => {
     if (!escrowToDelete) return;
     
     setIsDeleting(true);
     try {
-      const response = await fetch(`/api/escrow/${escrowToDelete.id}`, {
+      const url = useForce 
+        ? `/api/escrow/${escrowToDelete.id}?force=true`
+        : `/api/escrow/${escrowToDelete.id}`;
+        
+      const response = await fetch(url, {
         method: 'DELETE',
       });
       
       if (!response.ok) {
         const error = await response.json();
+        
+        // If requires force delete, show the force delete dialog
+        if (error.requiresForce) {
+          setForceDeleteRequired(true);
+          setIsDeleting(false);
+          return;
+        }
+        
         throw new Error(error.error || 'Failed to delete escrow');
       }
       
@@ -181,6 +194,9 @@ export default function HomePage() {
       
       // Refresh the list
       fetchEscrows();
+      setDeleteDialogOpen(false);
+      setEscrowToDelete(null);
+      setForceDeleteRequired(false);
     } catch (error: any) {
       toast({
         title: 'Error',
@@ -189,8 +205,6 @@ export default function HomePage() {
       });
     } finally {
       setIsDeleting(false);
-      setDeleteDialogOpen(false);
-      setEscrowToDelete(null);
     }
   };
 
@@ -473,34 +487,70 @@ export default function HomePage() {
       </Card>
 
       {/* Delete Confirmation Dialog */}
-      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-        <AlertDialogContent>
+      <AlertDialog open={deleteDialogOpen} onOpenChange={(open) => {
+        setDeleteDialogOpen(open);
+        if (!open) {
+          setForceDeleteRequired(false);
+          setEscrowToDelete(null);
+        }
+      }}>
+        <AlertDialogContent className={forceDeleteRequired ? 'border-2 border-amber-400' : ''}>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete Escrow?</AlertDialogTitle>
+            <AlertDialogTitle className={forceDeleteRequired ? 'text-amber-700' : ''}>
+              {forceDeleteRequired ? '⚠️ Force Delete Closed Escrow?' : 'Delete Escrow?'}
+            </AlertDialogTitle>
             <AlertDialogDescription className="space-y-2">
-              <p>Are you sure you want to delete this escrow?</p>
-              {escrowToDelete && (
-                <div className="bg-gray-100 p-3 rounded-lg mt-2">
-                  <p className="font-medium text-gray-900">{escrowToDelete.propertyAddress}</p>
-                  <p className="text-sm text-gray-600">{formatCurrency(escrowToDelete.purchasePrice)}</p>
-                </div>
+              {forceDeleteRequired ? (
+                <>
+                  <div className="bg-amber-50 border border-amber-200 p-3 rounded-lg">
+                    <p className="font-medium text-amber-800">This escrow has already been closed!</p>
+                    <p className="text-sm text-amber-700 mt-1">
+                      Funds have been disbursed. This delete is for demo/cleanup purposes only.
+                    </p>
+                  </div>
+                  {escrowToDelete && (
+                    <div className="bg-gray-100 p-3 rounded-lg mt-2">
+                      <p className="font-medium text-gray-900">{escrowToDelete.propertyAddress}</p>
+                      <p className="text-sm text-gray-600">{formatCurrency(escrowToDelete.purchasePrice)}</p>
+                      <Badge className="mt-1 bg-gray-200 text-gray-700">CLOSED</Badge>
+                    </div>
+                  )}
+                  <p className="text-red-600 text-sm mt-2 font-medium">
+                    In production, closed escrows should be retained for audit purposes.
+                  </p>
+                </>
+              ) : (
+                <>
+                  <p>Are you sure you want to delete this escrow?</p>
+                  {escrowToDelete && (
+                    <div className="bg-gray-100 p-3 rounded-lg mt-2">
+                      <p className="font-medium text-gray-900">{escrowToDelete.propertyAddress}</p>
+                      <p className="text-sm text-gray-600">{formatCurrency(escrowToDelete.purchasePrice)}</p>
+                    </div>
+                  )}
+                  <p className="text-red-600 text-sm mt-2">
+                    This action cannot be undone. All payees and transaction history will be permanently deleted.
+                  </p>
+                </>
               )}
-              <p className="text-red-600 text-sm mt-2">
-                This action cannot be undone. All payees and transaction history will be permanently deleted.
-              </p>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
             <AlertDialogAction
-              onClick={handleDeleteConfirm}
+              onClick={() => handleDeleteConfirm(forceDeleteRequired)}
               disabled={isDeleting}
-              className="bg-red-600 hover:bg-red-700"
+              className={forceDeleteRequired ? 'bg-amber-600 hover:bg-amber-700' : 'bg-red-600 hover:bg-red-700'}
             >
               {isDeleting ? (
                 <>
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                   Deleting...
+                </>
+              ) : forceDeleteRequired ? (
+                <>
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  Force Delete (Demo Only)
                 </>
               ) : (
                 <>

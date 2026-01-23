@@ -66,24 +66,28 @@ export async function POST(request: NextRequest) {
     const header = parseResult.escrowHeader;
     
     // Generate escrow ID (use Qualia file number if provided, otherwise generate)
-    const escrowId = header.fileNumber || `ESC-${new Date().getFullYear()}-${Date.now().toString().slice(-6)}`;
+    let baseEscrowId = header.fileNumber || `ESC-${new Date().getFullYear()}-${Date.now().toString().slice(-6)}`;
+    let escrowId = baseEscrowId;
+    let qualiaFileNumber = header.fileNumber || undefined;
     
     // Check if escrow already exists with this file number
+    // If so, auto-generate a unique suffix for demo convenience
     const existingEscrow = await prisma.escrow.findFirst({
       where: {
         OR: [
-          { escrowId },
-          { qualiaFileNumber: header.fileNumber },
+          { escrowId: baseEscrowId },
+          ...(header.fileNumber ? [{ qualiaFileNumber: header.fileNumber }] : []),
         ],
       },
     });
     
     if (existingEscrow) {
-      return NextResponse.json({
-        error: 'Escrow already exists',
-        details: `An escrow with file number ${header.fileNumber || escrowId} already exists`,
-        existingEscrowId: existingEscrow.escrowId,
-      }, { status: 409 });
+      // Auto-generate unique suffix for demo purposes
+      const timestamp = Date.now().toString(36).toUpperCase();
+      escrowId = `${baseEscrowId}-${timestamp}`;
+      qualiaFileNumber = qualiaFileNumber ? `${qualiaFileNumber}-${timestamp}` : undefined;
+      
+      console.log(`[Import API] Duplicate detected. Generated unique ID: ${escrowId}`);
     }
     
     // Parse additional signers
@@ -122,7 +126,7 @@ export async function POST(request: NextRequest) {
     const escrow = await prisma.escrow.create({
       data: {
         escrowId,
-        qualiaFileNumber: header.fileNumber || undefined,
+        qualiaFileNumber,
         propertyAddress: fullAddress,
         city: header.city,
         state: header.state,

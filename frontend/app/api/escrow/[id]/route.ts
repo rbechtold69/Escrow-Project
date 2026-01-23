@@ -212,6 +212,10 @@ export async function DELETE(
 ) {
   try {
     const id = params.id;
+    
+    // Check for force delete parameter (for demo purposes)
+    const { searchParams } = new URL(request.url);
+    const forceDelete = searchParams.get('force') === 'true';
 
     // Find escrow
     const escrow = await prisma.escrow.findFirst({
@@ -230,10 +234,14 @@ export async function DELETE(
       );
     }
 
-    // Don't allow deletion of closed escrows with disbursed funds
-    if (escrow.status === 'CLOSED') {
+    // Don't allow deletion of closed escrows unless force=true (for demo cleanup)
+    if (escrow.status === 'CLOSED' && !forceDelete) {
       return NextResponse.json(
-        { error: 'Cannot delete a closed escrow' },
+        { 
+          error: 'Cannot delete a closed escrow',
+          hint: 'Use force delete for demo cleanup purposes',
+          requiresForce: true,
+        },
         { status: 400 }
       );
     }
