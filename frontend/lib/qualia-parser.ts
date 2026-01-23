@@ -298,7 +298,7 @@ function parseCSVFile(content: string, fileName: string): ParseResult {
   const headerRow = lines[0];
   const columnMap = detectCSVColumns(headerRow);
   
-  if (!columnMap.payeeName || !columnMap.amount) {
+  if (columnMap.payeeName === null || columnMap.amount === null) {
     return {
       success: false,
       items: [],
