@@ -201,6 +201,85 @@ export async function PATCH(
   }
 }
 
+// ============================================================
+// DELETE /api/escrow/[id]
+// Delete an escrow and all related records
+// ============================================================
+
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: { id: string } }
+) {
+  try {
+    const id = params.id;
+
+    // Find escrow
+    const escrow = await prisma.escrow.findFirst({
+      where: {
+        OR: [
+          { escrowId: id },
+          { id: id },
+        ],
+      },
+    });
+
+    if (!escrow) {
+      return NextResponse.json(
+        { error: 'Escrow not found' },
+        { status: 404 }
+      );
+    }
+
+    // Don't allow deletion of closed escrows with disbursed funds
+    if (escrow.status === 'CLOSED') {
+      return NextResponse.json(
+        { error: 'Cannot delete a closed escrow' },
+        { status: 400 }
+      );
+    }
+
+    // Delete related records first (due to foreign key constraints)
+    // The cascade should handle this, but being explicit for safety
+    
+    // Delete payees
+    await prisma.payee.deleteMany({
+      where: { escrowId: escrow.id },
+    });
+    
+    // Delete signers
+    await prisma.escrowSigner.deleteMany({
+      where: { escrowId: escrow.id },
+    });
+    
+    // Delete activity logs
+    await prisma.activityLog.deleteMany({
+      where: { escrowId: escrow.id },
+    });
+    
+    // Delete wire batches
+    await prisma.wireBatch.deleteMany({
+      where: { escrowId: escrow.id },
+    });
+
+    // Finally, delete the escrow
+    await prisma.escrow.delete({
+      where: { id: escrow.id },
+    });
+
+    return NextResponse.json({
+      success: true,
+      message: `Escrow ${escrow.escrowId} deleted successfully`,
+    });
+
+  } catch (error: any) {
+    console.error('[DELETE_ESCROW] Error:', error);
+    return NextResponse.json(
+      { error: 'Failed to delete escrow', details: error.message },
+      { status: 500 }
+    );
+  }
+}
+
 // Helper function
 function generateMockAccountNumber(): string {
   return Math.floor(1000000000 + Math.random() * 9000000000).toString();

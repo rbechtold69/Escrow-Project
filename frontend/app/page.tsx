@@ -17,7 +17,20 @@ import {
   Users,
   ArrowRight,
   FileSpreadsheet,
+  Trash2,
+  Loader2,
 } from 'lucide-react';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import { useToast } from '@/hooks/use-toast';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -54,10 +67,14 @@ const getStatusConfig = (status: string) => {
 export default function HomePage() {
   const { address, isConnected } = useAccount();
   const { connect, connectors, isPending } = useConnect();
+  const { toast } = useToast();
   const [mounted, setMounted] = useState(false);
   const [escrows, setEscrows] = useState<Escrow[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [escrowToDelete, setEscrowToDelete] = useState<Escrow | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [stats, setStats] = useState({
     totalEscrows: 0,
     activeEscrows: 0,
@@ -133,6 +150,47 @@ export default function HomePage() {
     const coinbaseConnector = connectors.find(c => c.id === 'coinbaseWalletSDK');
     if (coinbaseConnector) {
       connect({ connector: coinbaseConnector });
+    }
+  };
+
+  const handleDeleteClick = (e: React.MouseEvent, escrow: Escrow) => {
+    e.preventDefault(); // Prevent navigation to escrow detail
+    e.stopPropagation();
+    setEscrowToDelete(escrow);
+    setDeleteDialogOpen(true);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!escrowToDelete) return;
+    
+    setIsDeleting(true);
+    try {
+      const response = await fetch(`/api/escrow/${escrowToDelete.id}`, {
+        method: 'DELETE',
+      });
+      
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to delete escrow');
+      }
+      
+      toast({
+        title: 'Escrow Deleted',
+        description: `${escrowToDelete.propertyAddress} has been deleted`,
+      });
+      
+      // Refresh the list
+      fetchEscrows();
+    } catch (error: any) {
+      toast({
+        title: 'Error',
+        description: error.message,
+        variant: 'destructive',
+      });
+    } finally {
+      setIsDeleting(false);
+      setDeleteDialogOpen(false);
+      setEscrowToDelete(null);
     }
   };
 
@@ -362,13 +420,15 @@ export default function HomePage() {
                 const config = getStatusConfig(escrow.status);
                 const StatusIcon = config.icon;
                 return (
-                  <Link 
+                  <div 
                     key={escrow.id} 
-                    href={`/escrow/${escrow.id}`}
-                    className="block py-4 hover:bg-gray-50 -mx-6 px-6 transition-colors"
+                    className="py-4 hover:bg-gray-50 -mx-6 px-6 transition-colors"
                   >
                     <div className="flex items-center justify-between gap-4">
-                      <div className="flex items-start gap-4 min-w-0">
+                      <Link 
+                        href={`/escrow/${escrow.id}`}
+                        className="flex items-start gap-4 min-w-0 flex-1"
+                      >
                         <div className="p-2 bg-blue-50 rounded-lg">
                           <Building2 className="h-5 w-5 text-blue-600" />
                         </div>
@@ -388,19 +448,70 @@ export default function HomePage() {
                             <span>{escrow.payeeCount} payees</span>
                           </div>
                         </div>
+                      </Link>
+                      <div className="flex items-center gap-3">
+                        <Badge className={config.color}>
+                          <StatusIcon className="h-3.5 w-3.5 mr-1" />
+                          {config.label}
+                        </Badge>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={(e) => handleDeleteClick(e, escrow)}
+                          className="text-gray-400 hover:text-red-600 hover:bg-red-50"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
                       </div>
-                      <Badge className={config.color}>
-                        <StatusIcon className="h-3.5 w-3.5 mr-1" />
-                        {config.label}
-                      </Badge>
                     </div>
-                  </Link>
+                  </div>
                 );
               })}
             </div>
           )}
         </CardContent>
       </Card>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Escrow?</AlertDialogTitle>
+            <AlertDialogDescription className="space-y-2">
+              <p>Are you sure you want to delete this escrow?</p>
+              {escrowToDelete && (
+                <div className="bg-gray-100 p-3 rounded-lg mt-2">
+                  <p className="font-medium text-gray-900">{escrowToDelete.propertyAddress}</p>
+                  <p className="text-sm text-gray-600">{formatCurrency(escrowToDelete.purchasePrice)}</p>
+                </div>
+              )}
+              <p className="text-red-600 text-sm mt-2">
+                This action cannot be undone. All payees and transaction history will be permanently deleted.
+              </p>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteConfirm}
+              disabled={isDeleting}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              {isDeleting ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Deleting...
+                </>
+              ) : (
+                <>
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  Delete Escrow
+                </>
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
