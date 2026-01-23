@@ -53,6 +53,9 @@ export async function POST(request: NextRequest) {
     const fileName = file.name;
     const fileSize = file.size;
     
+    console.log('[Qualia Batch API] File received:', { fileName, fileSize, contentLength: fileContent.length });
+    console.log('[Qualia Batch API] First 200 chars:', fileContent.substring(0, 200));
+    
     // Calculate file hash for integrity
     const fileHash = crypto
       .createHash('sha256')
@@ -62,12 +65,24 @@ export async function POST(request: NextRequest) {
     // Parse the file
     const parseResult = parseQualiaExport(fileContent, fileName);
     
+    console.log('[Qualia Batch API] Parse result:', { 
+      success: parseResult.success, 
+      itemCount: parseResult.items.length,
+      fileType: parseResult.fileType,
+      errors: parseResult.errors 
+    });
+    
     if (!parseResult.success && parseResult.items.length === 0) {
       return NextResponse.json(
         { 
           error: 'Failed to parse file',
           details: parseResult.errors,
           fileType: parseResult.fileType,
+          debug: {
+            fileName,
+            fileSize,
+            contentPreview: fileContent.substring(0, 300),
+          }
         },
         { status: 400 }
       );
