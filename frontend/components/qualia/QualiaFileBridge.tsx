@@ -11,17 +11,13 @@ import {
   AlertTriangle,
   Download,
   Play,
-  ThumbsUp,
-  ThumbsDown,
   RefreshCw,
   Trash2,
-  DollarSign,
   Zap,
   Building2,
   ChevronDown,
   ChevronUp,
   Users,
-  Shield,
   ArrowRight,
   FileSpreadsheet,
   AlertCircle,
@@ -336,14 +332,14 @@ export default function QualiaFileBridge({
   // Get status badge
   const getStatusBadge = (status: WireBatch['status']) => {
     const configs: Record<WireBatch['status'], { color: string; icon: React.ElementType; label: string }> = {
-      UPLOADED: { color: 'bg-yellow-100 text-yellow-800', icon: Clock, label: 'Awaiting Approval' },
-      PENDING: { color: 'bg-yellow-100 text-yellow-800', icon: Clock, label: 'Pending Review' },
-      APPROVED: { color: 'bg-blue-100 text-blue-800', icon: ThumbsUp, label: 'Approved' },
+      UPLOADED: { color: 'bg-blue-100 text-blue-800', icon: Play, label: 'Ready to Execute' },
+      PENDING: { color: 'bg-yellow-100 text-yellow-800', icon: Clock, label: 'Pending' },
+      APPROVED: { color: 'bg-blue-100 text-blue-800', icon: CheckCircle2, label: 'Approved' },
       PROCESSING: { color: 'bg-purple-100 text-purple-800', icon: RefreshCw, label: 'Processing...' },
       COMPLETED: { color: 'bg-green-100 text-green-800', icon: CheckCircle2, label: 'Completed' },
       PARTIAL: { color: 'bg-orange-100 text-orange-800', icon: AlertTriangle, label: 'Partial Success' },
       FAILED: { color: 'bg-red-100 text-red-800', icon: XCircle, label: 'Failed' },
-      REJECTED: { color: 'bg-red-100 text-red-800', icon: ThumbsDown, label: 'Rejected' },
+      REJECTED: { color: 'bg-red-100 text-red-800', icon: XCircle, label: 'Rejected' },
       CANCELLED: { color: 'bg-gray-100 text-gray-800', icon: Trash2, label: 'Cancelled' },
     };
     
@@ -355,15 +351,6 @@ export default function QualiaFileBridge({
         <Icon className={`h-3 w-3 mr-1 ${status === 'PROCESSING' ? 'animate-spin' : ''}`} />
         {config.label}
       </Badge>
-    );
-  };
-  
-  // Check if user can approve (dual control)
-  const canApprove = (batch: WireBatch) => {
-    return (
-      address &&
-      address.toLowerCase() !== batch.makerWallet.toLowerCase() &&
-      (batch.status === 'UPLOADED' || batch.status === 'PENDING')
     );
   };
   
@@ -397,18 +384,6 @@ export default function QualiaFileBridge({
           <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
           Refresh
         </Button>
-      </div>
-      
-      {/* Dual Control Notice */}
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 flex items-start gap-3">
-        <Shield className="h-5 w-5 text-blue-600 mt-0.5" />
-        <div>
-          <h4 className="font-medium text-blue-900">Dual Control (Maker/Checker)</h4>
-          <p className="text-sm text-blue-700">
-            Wire batches require approval from a different officer before execution. 
-            This ensures no single person can initiate and approve large payments.
-          </p>
-        </div>
       </div>
       
       {/* Error Alert */}
@@ -680,35 +655,8 @@ export default function QualiaFileBridge({
                       
                       {/* Actions */}
                       <div className="flex flex-wrap gap-2">
-                        {/* Approve/Reject buttons (for checker) */}
-                        {canApprove(batch) && (
-                          <>
-                            <Button
-                              onClick={() => handleBatchAction(batch.id, 'approve')}
-                              disabled={actionInProgress === `${batch.id}-approve`}
-                              className="bg-green-600 hover:bg-green-700"
-                            >
-                              {actionInProgress === `${batch.id}-approve` ? (
-                                <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                              ) : (
-                                <ThumbsUp className="h-4 w-4 mr-2" />
-                              )}
-                              Approve & Fund
-                            </Button>
-                            <Button
-                              variant="outline"
-                              onClick={() => handleBatchAction(batch.id, 'reject', 'Rejected by checker')}
-                              disabled={actionInProgress === `${batch.id}-reject`}
-                              className="text-red-600 border-red-300 hover:bg-red-50"
-                            >
-                              <ThumbsDown className="h-4 w-4 mr-2" />
-                              Reject
-                            </Button>
-                          </>
-                        )}
-                        
-                        {/* Execute button (after approval) */}
-                        {batch.status === 'APPROVED' && (
+                        {/* Execute button - available immediately after upload */}
+                        {['UPLOADED', 'APPROVED'].includes(batch.status) && (
                           <Button
                             onClick={() => handleBatchAction(batch.id, 'execute')}
                             disabled={actionInProgress === `${batch.id}-execute`}
@@ -755,13 +703,6 @@ export default function QualiaFileBridge({
                           </Button>
                         )}
                         
-                        {/* Status messages */}
-                        {isMaker(batch) && batch.status === 'UPLOADED' && (
-                          <div className="flex items-center gap-2 text-sm text-yellow-700 bg-yellow-50 px-3 py-2 rounded-md">
-                            <Clock className="h-4 w-4" />
-                            <span>Awaiting approval from another officer</span>
-                          </div>
-                        )}
                       </div>
                     </div>
                   )}

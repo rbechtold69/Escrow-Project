@@ -198,9 +198,11 @@ export async function POST(
       // EXECUTE - Process payouts via Bridge.xyz
       // ════════════════════════════════════════════════════════════════════
       case 'execute': {
-        if (batch.status !== 'APPROVED') {
+        // Allow execution from UPLOADED or APPROVED status
+        // (Dual control is handled at the escrow level, not batch level)
+        if (!['UPLOADED', 'APPROVED'].includes(batch.status)) {
           return NextResponse.json(
-            { error: `Cannot execute batch in ${batch.status} status. Must be APPROVED first.` },
+            { error: `Cannot execute batch in ${batch.status} status.` },
             { status: 400 }
           );
         }
