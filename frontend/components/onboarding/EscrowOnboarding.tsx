@@ -931,6 +931,25 @@ export default function EscrowOnboarding() {
                     Cancel auto-redirect
                   </Button>
                 </div>
+
+                {/* Always show a continue option */}
+                <div className="border-t pt-6 mt-6">
+                  <p className="text-sm text-gray-600 text-center mb-4">
+                    Already completed verification? Or want to continue exploring?
+                  </p>
+                  <div className="flex flex-col gap-3">
+                    <a href="/onboarding/success" className="w-full">
+                      <Button variant="outline" className="w-full">
+                        I've Completed Verification
+                      </Button>
+                    </a>
+                    <a href="/" className="w-full">
+                      <Button variant="ghost" className="w-full text-gray-500">
+                        Continue to Sign In
+                      </Button>
+                    </a>
+                  </div>
+                </div>
               </>
             )}
           </CardContent>
