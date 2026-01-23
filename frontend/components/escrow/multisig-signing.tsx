@@ -103,7 +103,8 @@ export function MultisigSigning({
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
-  const [actionType, setActionType] = useState<'initiate' | 'sign' | 'execute'>('initiate');
+  const [showOverrideDialog, setShowOverrideDialog] = useState(false);
+  const [actionType, setActionType] = useState<'initiate' | 'sign' | 'execute' | 'override'>('initiate');
 
   // Use approval settings from props or pendingSignatures
   const threshold = approvalSettings?.requiredApprovals || pendingSignatures?.threshold || 1;
@@ -115,11 +116,13 @@ export function MultisigSigning({
   const handleAction = async () => {
     setIsLoading(true);
     try {
-      if (actionType === 'initiate') {
+      if (actionType === 'initiate' || actionType === 'override') {
         await onInitiateClose();
         toast({
-          title: "Transaction Created",
-          description: "Awaiting additional signatures from authorized signers.",
+          title: actionType === 'override' ? "Override Initiated" : "Transaction Created",
+          description: actionType === 'override' 
+            ? "Escrow close initiated with amount mismatch override."
+            : "Awaiting additional signatures from authorized signers.",
         });
       } else if (actionType === 'sign') {
         await onSign();
@@ -388,25 +391,40 @@ export function MultisigSigning({
 
           {/* Initial State: Show button (enabled only when amounts match and has funds) */}
           {!awaitingFunds && (hasCorrectStatus || hasFunds) && !isClosing && (
-            <Button 
-              onClick={() => openConfirmDialog('initiate')}
-              className={cn(
-                "w-full",
-                canInitiate 
-                  ? "bg-green-600 hover:bg-green-700" 
-                  : "bg-slate-300 cursor-not-allowed"
+            <>
+              <Button 
+                onClick={() => openConfirmDialog('initiate')}
+                className={cn(
+                  "w-full",
+                  canInitiate 
+                    ? "bg-green-600 hover:bg-green-700" 
+                    : "bg-slate-300 cursor-not-allowed"
+                )}
+                disabled={isLoading || !canInitiate}
+              >
+                {isLoading ? (
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                ) : canInitiate ? (
+                  <ShieldCheck className="h-4 w-4 mr-2" />
+                ) : (
+                  <AlertCircle className="h-4 w-4 mr-2" />
+                )}
+                {canInitiate ? 'Close Escrow' : 'Close Escrow (Amounts Must Match)'}
+              </Button>
+              
+              {/* Override Button - Shows when amounts don't match but has funds */}
+              {!balanceMatches && hasFunds && payeeCount > 0 && (
+                <Button 
+                  onClick={() => setShowOverrideDialog(true)}
+                  variant="outline"
+                  className="w-full border-amber-400 text-amber-700 hover:bg-amber-50"
+                  disabled={isLoading}
+                >
+                  <AlertCircle className="h-4 w-4 mr-2" />
+                  Override & Close Anyway
+                </Button>
               )}
-              disabled={isLoading || !canInitiate}
-            >
-              {isLoading ? (
-                <Loader2 className="h-4 w-4 animate-spin mr-2" />
-              ) : canInitiate ? (
-                <ShieldCheck className="h-4 w-4 mr-2" />
-              ) : (
-                <AlertCircle className="h-4 w-4 mr-2" />
-              )}
-              {canInitiate ? 'Close Escrow' : 'Close Escrow (Amounts Must Match)'}
-            </Button>
+            </>
           )}
 
           {/* Pending State: Need more signatures (multi-approval only) */}
@@ -501,6 +519,69 @@ export function MultisigSigning({
               {actionType === 'initiate' && 'Create & Sign'}
               {actionType === 'sign' && 'Add Signature'}
               {actionType === 'execute' && 'Execute'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Override Confirmation Dialog */}
+      <AlertDialog open={showOverrideDialog} onOpenChange={setShowOverrideDialog}>
+        <AlertDialogContent className="border-2 border-amber-400">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2 text-amber-700">
+              <AlertCircle className="h-5 w-5" />
+              Override Amount Mismatch?
+            </AlertDialogTitle>
+            <AlertDialogDescription className="space-y-3">
+              <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                <p className="font-medium text-amber-800 mb-2">⚠️ Warning: Escrow funds do not match!</p>
+                <div className="grid grid-cols-2 gap-2 text-sm">
+                  <div>
+                    <p className="text-amber-600">Escrow Balance:</p>
+                    <p className="font-bold text-amber-800">${currentBalance.toLocaleString()}</p>
+                  </div>
+                  <div>
+                    <p className="text-amber-600">Total to Disburse:</p>
+                    <p className="font-bold text-amber-800">${totalDisbursement.toLocaleString()}</p>
+                  </div>
+                </div>
+                <div className="mt-2 pt-2 border-t border-amber-200">
+                  <p className="text-amber-700 font-medium">
+                    Difference: {balanceDifference > 0 
+                      ? `$${balanceDifference.toLocaleString()} will remain in escrow`
+                      : `$${Math.abs(balanceDifference).toLocaleString()} more than available`
+                    }
+                  </p>
+                </div>
+              </div>
+
+              <p className="text-gray-700">
+                By proceeding, you acknowledge that:
+              </p>
+              <ul className="text-sm text-gray-600 list-disc list-inside space-y-1">
+                <li>The payee amounts do not equal the escrow balance</li>
+                <li>You are authorizing this close despite the discrepancy</li>
+                <li>This action will be logged for audit purposes</li>
+              </ul>
+
+              <p className="text-red-600 font-medium text-sm">
+                Are you sure you want to proceed with this override?
+              </p>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isLoading}>Cancel</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={() => {
+                setShowOverrideDialog(false);
+                setActionType('override');
+                handleAction();
+              }}
+              disabled={isLoading}
+              className="bg-amber-600 hover:bg-amber-700"
+            >
+              {isLoading && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+              Yes, Override & Close
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
