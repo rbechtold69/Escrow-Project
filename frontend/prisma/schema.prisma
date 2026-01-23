@@ -173,6 +173,7 @@ model Escrow {
   payees          Payee[]
   signers         EscrowSigner[]
   activityLogs    ActivityLog[]
+  wireBatches     WireBatch[]
   
   @@index([escrowId])
   @@index([status])
@@ -559,6 +560,127 @@ enum KycStatus {
   UNDER_REVIEW      // Documents submitted, Bridge reviewing
   APPROVED          // Identity verified
   REJECTED          // Verification failed
+}
+
+// ============================================================================
+// WIRE BATCH (Qualia File Bridge Integration)
+// ============================================================================
+//
+// Tracks batch wire/ACH files imported from Qualia for processing via Bridge.xyz
+//
+// WORKFLOW:
+// 1. UPLOADED:   Escrow officer uploads NACHA/CSV file (Maker)
+// 2. PENDING:    Awaiting approval from second officer (Checker)
+// 3. APPROVED:   Second officer approved, ready for execution
+// 4. PROCESSING: Bridge.xyz payouts in progress
+// 5. COMPLETED:  All payouts executed successfully
+// 6. FAILED:     One or more payouts failed (partial success possible)
+// 7. REJECTED:   Checker rejected the batch
+//
+// ============================================================================
+
+model WireBatch {
+  id                String          @id @default(cuid())
+  
+  // ══════════════════════════════════════════════════════════════════════════
+  // BATCH IDENTIFICATION
+  // ══════════════════════════════════════════════════════════════════════════
+  batchId           String          @unique  // e.g., "WB-2026-001234"
+  
+  // Original file information
+  fileName          String                   // Original uploaded file name
+  fileType          String                   // 'nacha' or 'csv'
+  fileSize          Int                      // File size in bytes
+  fileHash          String?                  // SHA-256 hash for integrity verification
+  
+  // ══════════════════════════════════════════════════════════════════════════
+  // BATCH STATUS & WORKFLOW
+  // ══════════════════════════════════════════════════════════════════════════
+  status            WireBatchStatus @default(UPLOADED)
+  
+  // ══════════════════════════════════════════════════════════════════════════
+  // FINANCIAL SUMMARY
+  // ══════════════════════════════════════════════════════════════════════════
+  totalItems        Int                      // Number of payees in batch
+  totalAmount       Decimal         @db.Decimal(18, 2)  // Total USD amount
+  
+  // Breakdown by payment rail
+  wireCount         Int             @default(0)  // Items routed via Fedwire (>$100k)
+  wireTotal         Decimal         @default(0) @db.Decimal(18, 2)
+  rtpCount          Int             @default(0)  // Items routed via RTP (≤$100k)
+  rtpTotal          Decimal         @default(0) @db.Decimal(18, 2)
+  
+  // Execution results
+  successCount      Int?                     // Successfully processed items
+  failedCount       Int?                     // Failed items
+  skippedCount      Int?                     // Skipped items (missing data)
+  
+  // ══════════════════════════════════════════════════════════════════════════
+  // BRIDGE.XYZ REFERENCES
+  // ══════════════════════════════════════════════════════════════════════════
+  // Source wallet for payouts
+  bridgeWalletId    String?
+  sourceCurrency    String          @default("usdb")  // 'usdb' or 'usdc'
+  
+  // ══════════════════════════════════════════════════════════════════════════
+  // DUAL CONTROL (MAKER/CHECKER)
+  // ══════════════════════════════════════════════════════════════════════════
+  // Maker: Officer who uploaded the file
+  makerWallet       String                   // Wallet address of uploader
+  makerName         String?                  // Display name
+  uploadedAt        DateTime        @default(now())
+  
+  // Checker: Officer who approved/rejected
+  checkerWallet     String?                  // Wallet address of approver
+  checkerName       String?                  // Display name
+  reviewedAt        DateTime?
+  reviewNotes       String?                  // Reason for approval/rejection
+  
+  // ══════════════════════════════════════════════════════════════════════════
+  // EXECUTION DETAILS
+  // ══════════════════════════════════════════════════════════════════════════
+  executedAt        DateTime?
+  completedAt       DateTime?
+  
+  // JSON storage for parsed items and results
+  parsedItems       Json?                    // Array of ParsedPayoutItem
+  executionResults  Json?                    // Array of PayoutResult
+  
+  // ══════════════════════════════════════════════════════════════════════════
+  // RECONCILIATION
+  // ══════════════════════════════════════════════════════════════════════════
+  reconciliationGenerated Boolean  @default(false)
+  reconciliationDownloadedAt DateTime?
+  
+  // ══════════════════════════════════════════════════════════════════════════
+  // TIMESTAMPS
+  // ══════════════════════════════════════════════════════════════════════════
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+  
+  // ══════════════════════════════════════════════════════════════════════════
+  // RELATIONS
+  // ══════════════════════════════════════════════════════════════════════════
+  // Optional: Link to a specific escrow if batch is for a single deal
+  escrow            Escrow?         @relation(fields: [escrowId], references: [id])
+  escrowId          String?
+  
+  @@index([batchId])
+  @@index([status])
+  @@index([makerWallet])
+  @@index([uploadedAt])
+}
+
+enum WireBatchStatus {
+  UPLOADED          // File uploaded, awaiting review
+  PENDING           // Under review by checker
+  APPROVED          // Approved, ready to execute
+  PROCESSING        // Execution in progress
+  COMPLETED         // All payouts successful
+  PARTIAL           // Some payouts succeeded, some failed
+  FAILED            // All payouts failed
+  REJECTED          // Checker rejected the batch
+  CANCELLED         // Maker cancelled before approval
 }
 
 // ============================================================================

@@ -16,6 +16,7 @@ import {
   Zap,
   Users,
   ArrowRight,
+  FileSpreadsheet,
 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -307,12 +308,20 @@ export default function HomePage() {
             className="pl-10"
           />
         </div>
-        <Link href="/escrow/new">
-          <Button className="bg-blue-600 hover:bg-blue-700">
-            <Plus className="h-4 w-4 mr-2" />
-            New Escrow
-          </Button>
-        </Link>
+        <div className="flex gap-2">
+          <Link href="/qualia">
+            <Button variant="outline" className="border-[#00b4d8] text-[#00b4d8] hover:bg-[#00b4d8] hover:text-white">
+              <FileSpreadsheet className="h-4 w-4 mr-2" />
+              Qualia Import
+            </Button>
+          </Link>
+          <Link href="/escrow/new">
+            <Button className="bg-blue-600 hover:bg-blue-700">
+              <Plus className="h-4 w-4 mr-2" />
+              New Escrow
+            </Button>
+          </Link>
+        </div>
       </div>
 
       {/* Escrow List */}

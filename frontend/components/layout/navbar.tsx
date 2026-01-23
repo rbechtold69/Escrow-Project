@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useAccount, useConnect, useDisconnect } from 'wagmi';
-import { LogOut, ChevronDown, LayoutDashboard } from 'lucide-react';
+import { LogOut, ChevronDown, LayoutDashboard, FileSpreadsheet } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -56,6 +56,13 @@ export function Navbar() {
                 <LayoutDashboard className="h-4 w-4" />
                 Dashboard
               </Link>
+              <Link 
+                href="/qualia" 
+                className="text-sm font-medium text-gray-600 hover:text-[#00b4d8] transition-colors flex items-center gap-1.5"
+              >
+                <FileSpreadsheet className="h-4 w-4" />
+                Qualia Import
+              </Link>
             </div>
           )}
 
@@ -85,6 +92,12 @@ export function Navbar() {
                       <Link href="/" className="cursor-pointer">
                         <LayoutDashboard className="h-4 w-4 mr-2" />
                         Dashboard
+                      </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem asChild>
+                      <Link href="/qualia" className="cursor-pointer">
+                        <FileSpreadsheet className="h-4 w-4 mr-2" />
+                        Qualia Import
                       </Link>
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />
