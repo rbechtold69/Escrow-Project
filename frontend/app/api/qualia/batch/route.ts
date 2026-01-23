@@ -276,13 +276,8 @@ export async function POST(request: NextRequest) {
       },
     });
     
-    // Update escrow status to indicate payees are ready
-    if (successCount > 0) {
-      await prisma.escrow.update({
-        where: { id: escrow.id },
-        data: { status: 'READY_TO_CLOSE' },
-      });
-    }
+    // Note: Status stays as CREATED until funds are received
+    // Payees being configured doesn't change the status - funds must arrive first
     
     return NextResponse.json({
       success: successCount > 0,

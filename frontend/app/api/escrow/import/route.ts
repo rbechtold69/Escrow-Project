@@ -268,14 +268,12 @@ export async function POST(request: NextRequest) {
       }
     }
     
-    // Update escrow status if payees were created
+    // Count successes
     const successCount = createdPayees.filter(p => p.status === 'success').length;
-    if (successCount > 0) {
-      await prisma.escrow.update({
-        where: { id: escrow.id },
-        data: { status: 'READY_TO_CLOSE' },
-      });
-    }
+    
+    // Note: Status stays as CREATED until funds are received
+    // The workflow is: CREATED → FUNDS_RECEIVED → READY_TO_CLOSE → CLOSED
+    // Payees being configured doesn't change the status - funds must arrive first
     
     // ════════════════════════════════════════════════════════════════════════════
     // RETURN SUCCESS RESPONSE
