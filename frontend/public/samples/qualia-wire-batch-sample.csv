@@ -1,0 +1,13 @@
+Payee Name,Routing Number,Account Number,Amount,Reference ID,Account Type,Memo
+"First National Mortgage Co",021000021,1234567890,485000.00,ESC-2026-001234,Checking,Mortgage Payoff - 123 Oak Street
+"John & Sarah Williams",026009593,9876543210,142500.00,ESC-2026-001234,Checking,Seller Proceeds - 123 Oak Street
+"Apex Realty Group - Jane Smith",121000358,5551234567,28500.00,ESC-2026-001234,Checking,Listing Agent Commission 3%
+"Premier Properties - Mike Johnson",322271627,4449876543,28500.00,ESC-2026-001234,Checking,Buyer Agent Commission 3%
+"County Tax Assessor",021000021,7773216549,4250.00,ESC-2026-001234,Checking,Property Tax Proration
+"Sunshine Title Insurance Co",026009593,8885432167,2850.00,ESC-2026-001234,Checking,Title Insurance Premium
+"HomeShield Warranty Corp",121000358,6662345678,650.00,ESC-2026-001234,Checking,Home Warranty - 1 Year
+"Mobile Notary Services LLC",322271627,3338765432,175.00,ESC-2026-001234,Checking,Notary & Signing Services
+"Pacific Home Insurance",021000021,2224567891,1850.00,ESC-2026-001234,Checking,Homeowners Insurance - First Year
+"Oak Valley HOA",026009593,1117654321,425.00,ESC-2026-001234,Checking,HOA Transfer Fee
+"Summit Home Inspection",121000358,9993456789,550.00,ESC-2026-001234,Checking,Home Inspection Fee
+"Green Valley Pest Control",322271627,8881239876,225.00,ESC-2026-001234,Checking,Termite Inspection & Clearance

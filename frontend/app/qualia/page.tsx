@@ -107,6 +107,26 @@ export default function QualiaPage() {
             <li className="text-blue-600">• <em>RTP (Real-Time Payments) coming Spring 2026 for instant settlement</em></li>
           </ul>
         </div>
+        
+        <div className="mt-6 p-4 bg-green-50 border border-green-200 rounded-lg">
+          <h4 className="font-medium text-green-900 mb-2">Demo Sample File</h4>
+          <p className="text-sm text-green-800 mb-3">
+            Download a sample wire batch CSV file to test the import functionality:
+          </p>
+          <a 
+            href="/samples/qualia-wire-batch-sample.csv" 
+            download="qualia-wire-batch-sample.csv"
+            className="inline-flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors text-sm font-medium"
+          >
+            <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+            </svg>
+            Download Sample CSV
+          </a>
+          <p className="text-xs text-green-700 mt-2">
+            Contains 12 payees totaling $695,475 (includes mortgage payoff, seller proceeds, agent commissions, and closing costs)
+          </p>
+        </div>
       </div>
     </div>
   );
