@@ -10,8 +10,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import QualiaFileBridge from '@/components/qualia/QualiaFileBridge';
 
 interface Escrow {
-  id: string;
-  escrowId: string;
+  id: string;           // Human-readable ID for display/routing
+  internalId: string;   // Database ID for foreign keys
+  escrowId: string;     // Human-readable ID (same as id)
   propertyAddress: string;
   purchasePrice: number;
   status: string;
@@ -207,7 +208,7 @@ export default function QualiaPage() {
       {/* File Bridge Component - Only show when escrow is selected */}
       {selectedEscrow ? (
         <QualiaFileBridge 
-          escrowId={selectedEscrow.id}
+          escrowId={selectedEscrow.internalId}
           bridgeWalletId={selectedEscrow.bridgeWalletId}
           sourceCurrency={selectedEscrow.yieldEnabled ? 'usdb' : 'usdc'}
         />

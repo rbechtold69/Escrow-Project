@@ -43,7 +43,9 @@ export async function GET(request: NextRequest) {
     
     // Transform for frontend
     const formattedEscrows = escrows.map(escrow => ({
-      id: escrow.escrowId, // Use escrowId for routing
+      id: escrow.escrowId, // Use escrowId for routing (URL-friendly)
+      internalId: escrow.id, // Internal database ID for foreign keys
+      escrowId: escrow.escrowId, // Human-readable ID
       propertyAddress: `${escrow.propertyAddress}, ${escrow.city}, ${escrow.state} ${escrow.zipCode}`,
       purchasePrice: Number(escrow.purchasePrice),
       status: escrow.status,
