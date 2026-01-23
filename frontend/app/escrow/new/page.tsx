@@ -528,52 +528,6 @@ export default function NewEscrowPage() {
                   </Alert>
                 )}
                 
-                {/* Yield & Approval Settings for Import */}
-                <div className="border-t pt-4 mt-4 space-y-4">
-                  {/* Yield Toggle */}
-                  <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                    <div className="flex items-center gap-2">
-                      <TrendingUp className="h-5 w-5 text-green-600" />
-                      <div>
-                        <p className="font-medium text-gray-900 text-sm">Enable Interest Earnings</p>
-                        <p className="text-xs text-gray-500">Buyer earns ~4-5% APY while in escrow</p>
-                      </div>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => setFormData(prev => ({ ...prev, yieldEnabled: !prev.yieldEnabled }))}
-                      className={`
-                        relative inline-flex h-6 w-11 items-center rounded-full transition-colors
-                        ${formData.yieldEnabled ? 'bg-green-600' : 'bg-gray-300'}
-                      `}
-                    >
-                      <span className={`
-                        inline-block h-4 w-4 transform rounded-full bg-white transition
-                        ${formData.yieldEnabled ? 'translate-x-6' : 'translate-x-1'}
-                      `} />
-                    </button>
-                  </div>
-                </div>
-                
-                {/* Import Button */}
-                <Button
-                  onClick={handleImport}
-                  disabled={!selectedFile || isUploading}
-                  className="w-full bg-[#00b4d8] hover:bg-[#0096c7]"
-                >
-                  {isUploading ? (
-                    <>
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                      Importing...
-                    </>
-                  ) : (
-                    <>
-                      <Upload className="h-4 w-4 mr-2" />
-                      Import & Create Escrow
-                    </>
-                  )}
-                </Button>
-                
                 {/* File Format Info */}
                 <div className="text-xs text-gray-500 p-3 bg-blue-50 rounded-lg">
                   <p className="font-medium text-blue-800 mb-1">Expected File Format:</p>
@@ -740,6 +694,12 @@ export default function NewEscrowPage() {
               </div>
             </CardContent>
           </Card>
+          </form>
+          )}
+
+          {/* ══════════════════════════════════════════════════════════════════════════ */}
+          {/* SHARED SETTINGS - Appear for both Manual Entry and Qualia Import           */}
+          {/* ══════════════════════════════════════════════════════════════════════════ */}
 
           {/* Yield Preference Card */}
           <Card className="border-2 border-dashed">
@@ -1027,6 +987,10 @@ export default function NewEscrowPage() {
             </CardContent>
           </Card>
 
+          {/* ══════════════════════════════════════════════════════════════════════════ */}
+          {/* ACTION BUTTONS - Mode-specific                                              */}
+          {/* ══════════════════════════════════════════════════════════════════════════ */}
+
           {errors.submit && (
             <Alert variant="destructive">
               <AlertDescription>{errors.submit}</AlertDescription>
@@ -1037,12 +1001,46 @@ export default function NewEscrowPage() {
             <Button type="button" variant="outline" onClick={() => router.push('/')}>
               Cancel
             </Button>
-            <Button type="submit" className="bg-blue-600 hover:bg-blue-700">
-              Create Escrow
-            </Button>
+            
+            {/* Manual Entry: Create Escrow */}
+            {entryMode === 'manual' && (
+              <Button 
+                onClick={handleSubmit}
+                disabled={isSubmitting}
+                className="bg-blue-600 hover:bg-blue-700"
+              >
+                {isSubmitting ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Creating...
+                  </>
+                ) : (
+                  'Create Escrow'
+                )}
+              </Button>
+            )}
+            
+            {/* Qualia Import: Import & Create */}
+            {entryMode === 'import' && (
+              <Button 
+                onClick={handleImport}
+                disabled={!selectedFile || isUploading}
+                className="bg-[#00b4d8] hover:bg-[#0096c7]"
+              >
+                {isUploading ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Importing...
+                  </>
+                ) : (
+                  <>
+                    <Upload className="h-4 w-4 mr-2" />
+                    Import & Create Escrow
+                  </>
+                )}
+              </Button>
+            )}
           </div>
-        </form>
-          )}
         </div>
       )}
 
