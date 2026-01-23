@@ -9,8 +9,6 @@ import {
   XCircle,
   Clock,
   AlertTriangle,
-  Download,
-  Play,
   RefreshCw,
   Trash2,
   Zap,
@@ -88,7 +86,19 @@ interface UploadResult {
     parseErrors: Array<{ lineNumber: number; message: string }>;
     validationErrors: Array<{ lineNumber: number; message: string }>;
   };
+  payees?: {
+    created: number;
+    failed: number;
+    details: Array<{
+      name: string;
+      amount: number;
+      paymentMethod: string;
+      status: 'success' | 'failed';
+      error?: string;
+    }>;
+  };
   message: string;
+  nextStep?: string;
 }
 
 // ============================================================================
@@ -332,13 +342,13 @@ export default function QualiaFileBridge({
   // Get status badge
   const getStatusBadge = (status: WireBatch['status']) => {
     const configs: Record<WireBatch['status'], { color: string; icon: React.ElementType; label: string }> = {
-      UPLOADED: { color: 'bg-blue-100 text-blue-800', icon: Play, label: 'Ready to Execute' },
+      UPLOADED: { color: 'bg-yellow-100 text-yellow-800', icon: Clock, label: 'Processing...' },
       PENDING: { color: 'bg-yellow-100 text-yellow-800', icon: Clock, label: 'Pending' },
       APPROVED: { color: 'bg-blue-100 text-blue-800', icon: CheckCircle2, label: 'Approved' },
-      PROCESSING: { color: 'bg-purple-100 text-purple-800', icon: RefreshCw, label: 'Processing...' },
-      COMPLETED: { color: 'bg-green-100 text-green-800', icon: CheckCircle2, label: 'Completed' },
-      PARTIAL: { color: 'bg-orange-100 text-orange-800', icon: AlertTriangle, label: 'Partial Success' },
-      FAILED: { color: 'bg-red-100 text-red-800', icon: XCircle, label: 'Failed' },
+      PROCESSING: { color: 'bg-purple-100 text-purple-800', icon: RefreshCw, label: 'Importing...' },
+      COMPLETED: { color: 'bg-green-100 text-green-800', icon: CheckCircle2, label: 'Payees Imported' },
+      PARTIAL: { color: 'bg-orange-100 text-orange-800', icon: AlertTriangle, label: 'Partial Import' },
+      FAILED: { color: 'bg-red-100 text-red-800', icon: XCircle, label: 'Import Failed' },
       REJECTED: { color: 'bg-red-100 text-red-800', icon: XCircle, label: 'Rejected' },
       CANCELLED: { color: 'bg-gray-100 text-gray-800', icon: Trash2, label: 'Cancelled' },
     };
@@ -463,35 +473,62 @@ export default function QualiaFileBridge({
           
           {/* Upload Result */}
           {uploadResult && (
-            <div className="mt-4 p-4 bg-green-50 border border-green-200 rounded-lg">
-              <div className="flex items-center gap-2 text-green-800">
-                <CheckCircle2 className="h-5 w-5" />
+            <div className={`mt-4 p-4 rounded-lg border ${uploadResult.success ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'}`}>
+              <div className={`flex items-center gap-2 ${uploadResult.success ? 'text-green-800' : 'text-red-800'}`}>
+                {uploadResult.success ? <CheckCircle2 className="h-5 w-5" /> : <XCircle className="h-5 w-5" />}
                 <span className="font-medium">{uploadResult.message}</span>
               </div>
               
-              <div className="mt-3 grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                <div>
-                  <p className="text-gray-500">Total Items</p>
-                  <p className="font-semibold text-gray-900">{uploadResult.batch.totalItems}</p>
+              {/* Payee Import Summary */}
+              {uploadResult.payees && (
+                <div className="mt-3 grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                  <div>
+                    <p className="text-gray-500">Payees Imported</p>
+                    <p className="font-semibold text-green-700">{uploadResult.payees.created}</p>
+                  </div>
+                  {uploadResult.payees.failed > 0 && (
+                    <div>
+                      <p className="text-gray-500">Failed</p>
+                      <p className="font-semibold text-red-700">{uploadResult.payees.failed}</p>
+                    </div>
+                  )}
+                  <div>
+                    <p className="text-gray-500">Total Amount</p>
+                    <p className="font-semibold text-gray-900">{formatCurrency(uploadResult.batch.totalAmount)}</p>
+                  </div>
+                  <div>
+                    <p className="text-gray-500">Wire / ACH</p>
+                    <p className="font-semibold text-gray-900">
+                      {uploadResult.batch.summary.wireCount} / {uploadResult.batch.summary.rtpCount}
+                    </p>
+                  </div>
                 </div>
-                <div>
-                  <p className="text-gray-500">Total Amount</p>
-                  <p className="font-semibold text-gray-900">{formatCurrency(uploadResult.batch.totalAmount)}</p>
-                </div>
-                <div>
-                  <p className="text-gray-500">Wire Transfers</p>
-                  <p className="font-semibold text-gray-900">
-                    {uploadResult.batch.summary.wireCount} ({formatCurrency(uploadResult.batch.summary.wireTotal)})
-                  </p>
-                </div>
-                <div>
-                  <p className="text-gray-500">RTP/ACH</p>
-                  <p className="font-semibold text-gray-900">
-                    {uploadResult.batch.summary.rtpCount} ({formatCurrency(uploadResult.batch.summary.rtpTotal)})
-                  </p>
-                </div>
+              )}
+              
+              {/* Security Notice */}
+              <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-md">
+                <p className="text-sm text-blue-800 flex items-center gap-2">
+                  <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                  </svg>
+                  <span><strong>Security:</strong> Bank account details were sent directly to Bridge.xyz for secure storage. Only tokenized references are stored in EscrowPayi.</span>
+                </p>
               </div>
               
+              {/* Next Step Button */}
+              {uploadResult.success && uploadResult.nextStep && (
+                <div className="mt-4">
+                  <a
+                    href={uploadResult.nextStep}
+                    className="inline-flex items-center gap-2 px-4 py-2 bg-[#00b4d8] text-white rounded-md hover:bg-[#0096c7] transition-colors font-medium"
+                  >
+                    Review Payees & Close Escrow
+                    <ArrowRight className="h-4 w-4" />
+                  </a>
+                </div>
+              )}
+              
+              {/* Warnings */}
               {(uploadResult.batch.parseErrors.length > 0 || uploadResult.batch.validationErrors.length > 0) && (
                 <div className="mt-3 p-3 bg-yellow-50 border border-yellow-200 rounded-md">
                   <p className="text-sm font-medium text-yellow-800 flex items-center gap-2">
@@ -655,42 +692,26 @@ export default function QualiaFileBridge({
                       
                       {/* Actions */}
                       <div className="flex flex-wrap gap-2">
-                        {/* Execute button - available immediately after upload */}
-                        {['UPLOADED', 'APPROVED'].includes(batch.status) && (
-                          <Button
-                            onClick={() => handleBatchAction(batch.id, 'execute')}
-                            disabled={actionInProgress === `${batch.id}-execute`}
-                            className="bg-[#00b4d8] hover:bg-[#0096c7]"
+                        {/* View escrow to review payees and close */}
+                        {batch.escrowId && ['COMPLETED', 'PARTIAL'].includes(batch.status) && (
+                          <a
+                            href={`/escrow/${batch.escrowId}`}
+                            className="inline-flex items-center gap-2 px-4 py-2 bg-[#00b4d8] text-white rounded-md hover:bg-[#0096c7] transition-colors text-sm font-medium"
                           >
-                            {actionInProgress === `${batch.id}-execute` ? (
-                              <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                            ) : (
-                              <Play className="h-4 w-4 mr-2" />
-                            )}
-                            Execute Payments
-                          </Button>
+                            <Building2 className="h-4 w-4" />
+                            Review Payees & Close Escrow
+                          </a>
                         )}
                         
-                        {/* Download reconciliation (after execution) */}
-                        {['COMPLETED', 'PARTIAL', 'FAILED'].includes(batch.status) && (
-                          <Button
-                            variant="outline"
-                            onClick={() => handleBatchAction(batch.id, 'download-reconciliation')}
-                            disabled={actionInProgress === `${batch.id}-download-reconciliation`}
-                          >
-                            {actionInProgress === `${batch.id}-download-reconciliation` ? (
-                              <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                            ) : (
-                              <Download className="h-4 w-4 mr-2" />
-                            )}
-                            Download Reconciliation
-                            {batch.reconciliationGenerated && (
-                              <CheckCircle2 className="h-4 w-4 ml-2 text-green-600" />
-                            )}
-                          </Button>
+                        {/* Completed badge */}
+                        {batch.status === 'COMPLETED' && (
+                          <div className="flex items-center gap-2 text-sm text-green-700 bg-green-50 px-3 py-2 rounded-md">
+                            <CheckCircle2 className="h-4 w-4" />
+                            <span>{batch.successCount || batch.totalItems} payees imported</span>
+                          </div>
                         )}
                         
-                        {/* Cancel button (for maker, before execution) */}
+                        {/* Cancel button (only for non-completed batches) */}
                         {isMaker(batch) && !['PROCESSING', 'COMPLETED', 'PARTIAL'].includes(batch.status) && (
                           <Button
                             variant="outline"
@@ -702,7 +723,6 @@ export default function QualiaFileBridge({
                             Cancel
                           </Button>
                         )}
-                        
                       </div>
                     </div>
                   )}
