@@ -80,6 +80,9 @@ model Escrow {
   // Human-readable escrow ID (e.g., "ESC-2024-001847")
   escrowId        String       @unique
   
+  // Qualia integration - File Number for cross-reference
+  qualiaFileNumber String?     @unique
+  
   // Property details (non-sensitive)
   propertyAddress String
   city            String
@@ -91,6 +94,9 @@ model Escrow {
   buyerFirstName  String
   buyerLastName   String
   buyerEmail      String
+  
+  // Expected closing date (from Qualia import or manual entry)
+  closingDate     DateTime?
   
   // ══════════════════════════════════════════════════════════════════════════
   // BRIDGE.XYZ TOKENIZED REFERENCES (Compliant Architecture)

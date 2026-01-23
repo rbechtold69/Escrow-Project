@@ -6,8 +6,9 @@
  * Parses wire batch export files from Qualia:
  * - NACHA format (ACH batch files)
  * - Standard CSV format
+ * - Full escrow CSV format (with header metadata + payees)
  * 
- * Extracts payee details for processing via Bridge.xyz
+ * Extracts escrow details AND payee details for processing via Bridge.xyz
  * 
  * ============================================================================
  */
@@ -15,6 +16,19 @@
 // ============================================================================
 // TYPES
 // ============================================================================
+
+export interface EscrowHeaderData {
+  fileNumber: string;           // Qualia File # / Escrow ID
+  propertyAddress: string;
+  city: string;
+  state: string;
+  zipCode: string;
+  purchasePrice: number;        // In dollars
+  buyerFirstName: string;
+  buyerLastName: string;
+  buyerEmail: string;
+  closingDate?: string;
+}
 
 export interface ParsedPayoutItem {
   lineNumber: number;
@@ -32,6 +46,7 @@ export interface ParsedPayoutItem {
 export interface ParseResult {
   success: boolean;
   items: ParsedPayoutItem[];
+  escrowHeader?: EscrowHeaderData;  // Extracted escrow metadata (if present)
   totalAmount: number;      // Total in dollars
   totalItems: number;
   errors: ParseError[];
@@ -270,17 +285,26 @@ function parseNACHAEntryDetail(
 /**
  * Parse a standard CSV export from Qualia
  * 
- * Expected columns (flexible matching):
- * - Payee Name / Beneficiary / Name
- * - Routing Number / ABA / Routing
- * - Account Number / Account
- * - Amount / Wire Amount / Payment
- * - Reference / Deal Number / Order Number / File Number
+ * Supports two formats:
+ * 
+ * 1. FULL ESCROW FORMAT (with header section):
+ *    # ESCROW HEADER
+ *    File Number,ESC-2026-001234
+ *    Property Address,123 Oak Street
+ *    ...
+ *    # PAYEES
+ *    Payee Name,Routing Number,...
+ *    ...
+ * 
+ * 2. PAYEES-ONLY FORMAT:
+ *    Payee Name,Routing Number,Account Number,Amount,...
+ *    ...
  */
 function parseCSVFile(content: string, fileName: string): ParseResult {
   const lines = content.split('\n');
   const items: ParsedPayoutItem[] = [];
   const errors: ParseError[] = [];
+  let escrowHeader: EscrowHeaderData | undefined;
   
   if (lines.length < 2) {
     return {
@@ -294,18 +318,67 @@ function parseCSVFile(content: string, fileName: string): ParseResult {
     };
   }
   
-  // Parse header row to determine column mapping
-  const headerRow = lines[0];
+  // Check if this is a full escrow format (has header section)
+  const hasHeaderSection = lines.some(line => 
+    line.trim().toLowerCase().startsWith('# escrow header') ||
+    line.trim().toLowerCase().startsWith('file number,')
+  );
+  
+  let payeeStartIndex = 0;
+  
+  if (hasHeaderSection) {
+    // Parse the escrow header section
+    const headerResult = parseEscrowHeader(lines);
+    escrowHeader = headerResult.header;
+    payeeStartIndex = headerResult.payeeStartIndex;
+    
+    if (headerResult.errors.length > 0) {
+      errors.push(...headerResult.errors);
+    }
+  }
+  
+  // Find the column header row for payees
+  let columnHeaderIndex = payeeStartIndex;
+  for (let i = payeeStartIndex; i < lines.length; i++) {
+    const line = lines[i].trim().toLowerCase();
+    // Skip comment lines and empty lines
+    if (line.startsWith('#') || !line) {
+      columnHeaderIndex = i + 1;
+      continue;
+    }
+    // Check if this looks like a column header
+    if (line.includes('payee') || line.includes('name') || line.includes('amount')) {
+      columnHeaderIndex = i;
+      break;
+    }
+  }
+  
+  if (columnHeaderIndex >= lines.length) {
+    return {
+      success: false,
+      items: [],
+      escrowHeader,
+      totalAmount: 0,
+      totalItems: 0,
+      errors: [{ lineNumber: 0, message: 'Could not find payee column headers' }],
+      fileType: 'csv',
+      fileName,
+    };
+  }
+  
+  // Parse column header row to determine column mapping
+  const headerRow = lines[columnHeaderIndex];
   const columnMap = detectCSVColumns(headerRow);
   
   if (columnMap.payeeName === null || columnMap.amount === null) {
     return {
       success: false,
       items: [],
+      escrowHeader,
       totalAmount: 0,
       totalItems: 0,
       errors: [{ 
-        lineNumber: 1, 
+        lineNumber: columnHeaderIndex + 1, 
         message: 'Required columns not found. Expected: Payee Name, Routing, Account, Amount, Reference' 
       }],
       fileType: 'csv',
@@ -313,10 +386,10 @@ function parseCSVFile(content: string, fileName: string): ParseResult {
     };
   }
   
-  // Parse data rows
-  for (let i = 1; i < lines.length; i++) {
+  // Parse data rows (starting after the column header)
+  for (let i = columnHeaderIndex + 1; i < lines.length; i++) {
     const line = lines[i].trim();
-    if (!line) continue; // Skip empty lines
+    if (!line || line.startsWith('#')) continue; // Skip empty lines and comments
     
     const lineNumber = i + 1;
     
@@ -337,13 +410,121 @@ function parseCSVFile(content: string, fileName: string): ParseResult {
   const totalAmount = items.reduce((sum, item) => sum + item.amountDollars, 0);
   
   return {
-    success: errors.length === 0,
+    success: errors.length === 0 || items.length > 0,
     items,
+    escrowHeader,
     totalAmount,
     totalItems: items.length,
     errors,
     fileType: 'csv',
     fileName,
+  };
+}
+
+/**
+ * Parse the escrow header section from a full escrow CSV
+ */
+function parseEscrowHeader(lines: string[]): {
+  header?: EscrowHeaderData;
+  payeeStartIndex: number;
+  errors: ParseError[];
+} {
+  const headerData: Partial<EscrowHeaderData> = {};
+  const errors: ParseError[] = [];
+  let payeeStartIndex = 0;
+  
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i].trim();
+    
+    // Found the payee section
+    if (line.toLowerCase().startsWith('# payee') || 
+        line.toLowerCase().includes('payee name,')) {
+      payeeStartIndex = line.toLowerCase().startsWith('#') ? i + 1 : i;
+      break;
+    }
+    
+    // Skip comment markers and empty lines
+    if (line.startsWith('#') || !line) continue;
+    
+    // Parse key-value pairs
+    const parts = parseCSVLine(line);
+    if (parts.length >= 2) {
+      const key = parts[0].toLowerCase().trim();
+      const value = parts[1].trim();
+      
+      switch (key) {
+        case 'file number':
+        case 'file #':
+        case 'escrow number':
+        case 'escrow id':
+          headerData.fileNumber = value;
+          break;
+        case 'property address':
+        case 'address':
+          headerData.propertyAddress = value;
+          break;
+        case 'city':
+          headerData.city = value;
+          break;
+        case 'state':
+          headerData.state = value;
+          break;
+        case 'zip code':
+        case 'zip':
+        case 'postal code':
+          headerData.zipCode = value;
+          break;
+        case 'purchase price':
+        case 'price':
+        case 'sale price':
+          const price = parseFloat(value.replace(/[$,]/g, ''));
+          if (!isNaN(price)) {
+            headerData.purchasePrice = price;
+          }
+          break;
+        case 'buyer first name':
+        case 'buyer firstname':
+          headerData.buyerFirstName = value;
+          break;
+        case 'buyer last name':
+        case 'buyer lastname':
+          headerData.buyerLastName = value;
+          break;
+        case 'buyer email':
+        case 'buyer e-mail':
+          headerData.buyerEmail = value;
+          break;
+        case 'closing date':
+        case 'close date':
+          headerData.closingDate = value;
+          break;
+      }
+    }
+  }
+  
+  // Validate required header fields
+  const requiredFields: (keyof EscrowHeaderData)[] = [
+    'propertyAddress', 'city', 'state', 'zipCode', 
+    'purchasePrice', 'buyerFirstName', 'buyerLastName', 'buyerEmail'
+  ];
+  
+  const hasAllRequired = requiredFields.every(field => {
+    const value = headerData[field];
+    return value !== undefined && value !== '';
+  });
+  
+  if (!hasAllRequired) {
+    // Still return what we have, just note the missing fields
+    const missing = requiredFields.filter(f => !headerData[f]);
+    if (missing.length > 0) {
+      console.log('[Qualia Parser] Missing header fields:', missing);
+    }
+  }
+  
+  return {
+    header: hasAllRequired ? headerData as EscrowHeaderData : undefined,
+    payeeStartIndex,
+    errors,
   };
 }
 

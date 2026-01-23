@@ -1,9 +1,9 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAccount } from 'wagmi';
-import { ArrowLeft, Building2, Loader2, Copy, Download, CheckCircle2, Mail, User, TrendingUp, Shield, Users, Plus, X } from 'lucide-react';
+import { ArrowLeft, Building2, Loader2, Copy, Download, CheckCircle2, Mail, User, TrendingUp, Shield, Users, Plus, X, Upload, FileSpreadsheet, AlertCircle } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -23,6 +23,7 @@ interface WiringInstructions {
 }
 
 type FormStep = 'details' | 'creating' | 'wiring';
+type EntryMode = 'manual' | 'import';
 
 export default function NewEscrowPage() {
   const router = useRouter();
@@ -30,6 +31,7 @@ export default function NewEscrowPage() {
   const { toast } = useToast();
   
   const [mounted, setMounted] = useState(false);
+  const [entryMode, setEntryMode] = useState<EntryMode>('manual');
   const [step, setStep] = useState<FormStep>('details');
   const [formData, setFormData] = useState({
     // Property Details
@@ -48,6 +50,29 @@ export default function NewEscrowPage() {
     multiApproval: false, // Default: single signer
   });
   
+  // Import mode state
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+  const [importResult, setImportResult] = useState<{
+    success: boolean;
+    escrow?: {
+      escrowId: string;
+      qualiaFileNumber?: string;
+      propertyAddress: string;
+      purchasePrice: number;
+      buyer: string;
+    };
+    payees?: {
+      created: number;
+      failed: number;
+      total: number;
+    };
+    wiringInstructions?: WiringInstructions;
+    error?: string;
+  } | null>(null);
+  
   // Additional signers for multi-approval
   const [additionalSigners, setAdditionalSigners] = useState<Array<{
     walletAddress: string;
@@ -65,6 +90,80 @@ export default function NewEscrowPage() {
   useEffect(() => {
     setMounted(true);
   }, []);
+  
+  // Handle file selection
+  const handleFileSelect = (file: File) => {
+    if (file.name.endsWith('.csv') || file.name.endsWith('.txt')) {
+      setSelectedFile(file);
+      setImportResult(null);
+    } else {
+      toast({
+        title: 'Invalid File',
+        description: 'Please upload a CSV file',
+        variant: 'destructive',
+      });
+    }
+  };
+  
+  // Handle import submission
+  const handleImport = async () => {
+    if (!selectedFile || !address) return;
+    
+    setIsUploading(true);
+    setImportResult(null);
+    
+    try {
+      const formDataObj = new FormData();
+      formDataObj.append('file', selectedFile);
+      formDataObj.append('officerWallet', address);
+      formDataObj.append('yieldEnabled', formData.yieldEnabled.toString());
+      formDataObj.append('multiApproval', formData.multiApproval.toString());
+      formDataObj.append('additionalSigners', JSON.stringify(additionalSigners));
+      
+      const response = await fetch('/api/escrow/import', {
+        method: 'POST',
+        body: formDataObj,
+      });
+      
+      const data = await response.json();
+      
+      if (!response.ok) {
+        setImportResult({
+          success: false,
+          error: data.error || 'Import failed',
+        });
+        return;
+      }
+      
+      setImportResult({
+        success: true,
+        escrow: data.escrow,
+        payees: data.payees,
+        wiringInstructions: data.wiringInstructions,
+      });
+      
+      // Set state for wiring instructions display
+      setEscrowId(data.escrow.escrowId);
+      setWiringInstructions(data.wiringInstructions);
+      setStep('wiring');
+      
+      // Update form data for display
+      setFormData(prev => ({
+        ...prev,
+        buyerFirstName: data.escrow.buyer.split(' ')[0] || '',
+        buyerLastName: data.escrow.buyer.split(' ').slice(1).join(' ') || '',
+        buyerEmail: data.escrow.buyerEmail || '',
+      }));
+      
+    } catch (error) {
+      setImportResult({
+        success: false,
+        error: error instanceof Error ? error.message : 'Import failed',
+      });
+    } finally {
+      setIsUploading(false);
+    }
+  };
 
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
@@ -283,7 +382,216 @@ export default function NewEscrowPage() {
 
       {/* Step Content */}
       {step === 'details' && (
-        <form onSubmit={handleSubmit} className="space-y-6">
+        <div className="space-y-6">
+          {/* Entry Mode Toggle */}
+          <Card className="border-2 border-dashed border-[#00b4d8]">
+            <CardContent className="pt-6">
+              <div className="flex gap-4">
+                <button
+                  type="button"
+                  onClick={() => setEntryMode('manual')}
+                  className={`flex-1 p-4 rounded-lg border-2 transition-all ${
+                    entryMode === 'manual'
+                      ? 'border-[#00b4d8] bg-blue-50'
+                      : 'border-gray-200 hover:border-gray-300'
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <div className={`p-2 rounded-full ${entryMode === 'manual' ? 'bg-[#00b4d8]' : 'bg-gray-200'}`}>
+                      <Building2 className={`h-5 w-5 ${entryMode === 'manual' ? 'text-white' : 'text-gray-600'}`} />
+                    </div>
+                    <div className="text-left">
+                      <p className={`font-medium ${entryMode === 'manual' ? 'text-[#00b4d8]' : 'text-gray-700'}`}>
+                        Manual Entry
+                      </p>
+                      <p className="text-sm text-gray-500">Enter escrow details manually</p>
+                    </div>
+                  </div>
+                </button>
+                
+                <button
+                  type="button"
+                  onClick={() => setEntryMode('import')}
+                  className={`flex-1 p-4 rounded-lg border-2 transition-all ${
+                    entryMode === 'import'
+                      ? 'border-[#00b4d8] bg-blue-50'
+                      : 'border-gray-200 hover:border-gray-300'
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <div className={`p-2 rounded-full ${entryMode === 'import' ? 'bg-[#00b4d8]' : 'bg-gray-200'}`}>
+                      <FileSpreadsheet className={`h-5 w-5 ${entryMode === 'import' ? 'text-white' : 'text-gray-600'}`} />
+                    </div>
+                    <div className="text-left">
+                      <p className={`font-medium ${entryMode === 'import' ? 'text-[#00b4d8]' : 'text-gray-700'}`}>
+                        Qualia Import
+                      </p>
+                      <p className="text-sm text-gray-500">Import from Qualia export file</p>
+                    </div>
+                  </div>
+                </button>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Import Mode UI */}
+          {entryMode === 'import' && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <FileSpreadsheet className="h-5 w-5" />
+                  Import from Qualia
+                </CardTitle>
+                <CardDescription>
+                  Upload a Qualia export file to auto-populate escrow details and payees
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {/* Drag and Drop Zone */}
+                <div
+                  onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
+                  onDragLeave={() => setIsDragging(false)}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    setIsDragging(false);
+                    const file = e.dataTransfer.files[0];
+                    if (file) handleFileSelect(file);
+                  }}
+                  onClick={() => fileInputRef.current?.click()}
+                  className={`
+                    border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-all
+                    ${isDragging ? 'border-[#00b4d8] bg-blue-50' : 'border-gray-300 hover:border-gray-400'}
+                    ${selectedFile ? 'border-green-400 bg-green-50' : ''}
+                  `}
+                >
+                  <input
+                    type="file"
+                    ref={fileInputRef}
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) handleFileSelect(file);
+                    }}
+                    accept=".csv,.txt"
+                    className="hidden"
+                  />
+                  
+                  {selectedFile ? (
+                    <div className="flex items-center justify-center gap-3">
+                      <CheckCircle2 className="h-8 w-8 text-green-600" />
+                      <div className="text-left">
+                        <p className="font-medium text-green-800">{selectedFile.name}</p>
+                        <p className="text-sm text-green-600">{(selectedFile.size / 1024).toFixed(1)} KB</p>
+                      </div>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setSelectedFile(null);
+                          setImportResult(null);
+                        }}
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ) : (
+                    <>
+                      <Upload className="h-12 w-12 mx-auto text-gray-400 mb-3" />
+                      <p className="text-gray-600 font-medium">Drag and drop your Qualia file here</p>
+                      <p className="text-sm text-gray-500 mt-1">or click to browse</p>
+                      <p className="text-xs text-gray-400 mt-2">Supports CSV files with escrow header and payees</p>
+                    </>
+                  )}
+                </div>
+                
+                {/* Download Sample */}
+                <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                  <div>
+                    <p className="text-sm font-medium text-gray-700">Need a sample file?</p>
+                    <p className="text-xs text-gray-500">Download our template to see the expected format</p>
+                  </div>
+                  <a
+                    href="/samples/qualia-full-escrow-sample.csv"
+                    download
+                    className="text-sm text-[#00b4d8] hover:underline font-medium"
+                  >
+                    Download Sample CSV
+                  </a>
+                </div>
+                
+                {/* Import Error */}
+                {importResult && !importResult.success && (
+                  <Alert variant="destructive">
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertDescription>{importResult.error}</AlertDescription>
+                  </Alert>
+                )}
+                
+                {/* Yield & Approval Settings for Import */}
+                <div className="border-t pt-4 mt-4 space-y-4">
+                  {/* Yield Toggle */}
+                  <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                    <div className="flex items-center gap-2">
+                      <TrendingUp className="h-5 w-5 text-green-600" />
+                      <div>
+                        <p className="font-medium text-gray-900 text-sm">Enable Interest Earnings</p>
+                        <p className="text-xs text-gray-500">Buyer earns ~4-5% APY while in escrow</p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setFormData(prev => ({ ...prev, yieldEnabled: !prev.yieldEnabled }))}
+                      className={`
+                        relative inline-flex h-6 w-11 items-center rounded-full transition-colors
+                        ${formData.yieldEnabled ? 'bg-green-600' : 'bg-gray-300'}
+                      `}
+                    >
+                      <span className={`
+                        inline-block h-4 w-4 transform rounded-full bg-white transition
+                        ${formData.yieldEnabled ? 'translate-x-6' : 'translate-x-1'}
+                      `} />
+                    </button>
+                  </div>
+                </div>
+                
+                {/* Import Button */}
+                <Button
+                  onClick={handleImport}
+                  disabled={!selectedFile || isUploading}
+                  className="w-full bg-[#00b4d8] hover:bg-[#0096c7]"
+                >
+                  {isUploading ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Importing...
+                    </>
+                  ) : (
+                    <>
+                      <Upload className="h-4 w-4 mr-2" />
+                      Import & Create Escrow
+                    </>
+                  )}
+                </Button>
+                
+                {/* File Format Info */}
+                <div className="text-xs text-gray-500 p-3 bg-blue-50 rounded-lg">
+                  <p className="font-medium text-blue-800 mb-1">Expected File Format:</p>
+                  <ul className="list-disc list-inside space-y-0.5 text-blue-700">
+                    <li>File Number / Qualia Escrow ID</li>
+                    <li>Property Address, City, State, Zip Code</li>
+                    <li>Purchase Price</li>
+                    <li>Buyer First Name, Last Name, Email</li>
+                    <li>Payees with bank details (will be tokenized securely)</li>
+                  </ul>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Manual Entry Form */}
+          {entryMode === 'manual' && (
+          <form onSubmit={handleSubmit} className="space-y-6">
           {/* Property Details Card */}
           <Card>
             <CardHeader>
@@ -734,6 +1042,8 @@ export default function NewEscrowPage() {
             </Button>
           </div>
         </form>
+          )}
+        </div>
       )}
 
       {step === 'creating' && (
