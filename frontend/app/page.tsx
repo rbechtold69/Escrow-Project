@@ -190,15 +190,15 @@ export default function HomePage() {
               {isPending ? 'Connecting...' : 'Sign In'}
               <ArrowRight className="ml-2 h-5 w-5" />
             </Button>
-            <Button 
-              size="lg" 
-              variant="outline"
-              onClick={handleSignIn}
-              disabled={isPending}
-              className="text-lg px-10 py-6 border-2 border-[#00b4d8] text-[#00b4d8] hover:bg-[#00b4d8] hover:text-white shadow-lg"
-            >
-              Create Account
-            </Button>
+            <Link href="/onboarding">
+              <Button 
+                size="lg" 
+                variant="outline"
+                className="text-lg px-10 py-6 border-2 border-[#00b4d8] text-[#00b4d8] hover:bg-[#00b4d8] hover:text-white shadow-lg"
+              >
+                Create Account
+              </Button>
+            </Link>
           </div>
 
           {/* Features */}
