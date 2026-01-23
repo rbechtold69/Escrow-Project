@@ -14,7 +14,8 @@ import {
   Mail,
   MapPin,
   Briefcase,
-  AlertCircle
+  AlertCircle,
+  Clock
 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -181,12 +182,13 @@ export default function EscrowOnboarding() {
     setMounted(true);
   }, []);
   
-  // Auto-redirect countdown
+  // Auto-redirect countdown (only for real Bridge links, not demo)
   useEffect(() => {
     if (redirectCountdown !== null && redirectCountdown > 0) {
       const timer = setTimeout(() => setRedirectCountdown(redirectCountdown - 1), 1000);
       return () => clearTimeout(timer);
-    } else if (redirectCountdown === 0 && verificationData?.tosLink) {
+    } else if (redirectCountdown === 0 && verificationData?.tosLink && !verificationData.isDemo) {
+      // Only auto-redirect for real Bridge links
       window.location.href = verificationData.tosLink;
     }
   }, [redirectCountdown, verificationData]);
@@ -775,96 +777,162 @@ export default function EscrowOnboarding() {
               Company Profile Created!
             </CardTitle>
             <CardDescription>
-              {verificationData.officerName}, please complete your secure identity verification
+              {verificationData.officerName}, {verificationData.isDemo 
+                ? 'your demo company has been registered successfully!' 
+                : 'please complete your secure identity verification'}
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6 pt-6">
-            {verificationData.isDemo && (
-              <Alert className="bg-amber-50 border-amber-200">
-                <AlertCircle className="h-4 w-4 text-amber-600" />
-                <AlertDescription className="text-amber-800">
-                  <strong>Demo Mode:</strong> In production, you'll be redirected to Bridge's 
-                  secure verification portal. The links below are for demonstration purposes.
-                </AlertDescription>
-              </Alert>
+            {verificationData.isDemo ? (
+              // ════════════════════════════════════════════════════════════════
+              // DEMO MODE: Show success and let them proceed
+              // ════════════════════════════════════════════════════════════════
+              <>
+                <Alert className="bg-emerald-50 border-emerald-200">
+                  <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+                  <AlertDescription className="text-emerald-800">
+                    <strong>Demo Mode:</strong> Your escrow company has been registered! 
+                    In production, you would complete identity verification through Bridge's 
+                    secure portal before being approved.
+                  </AlertDescription>
+                </Alert>
+
+                {/* Demo Success Animation */}
+                <div className="bg-gradient-to-br from-emerald-50 to-teal-50 border border-emerald-200 rounded-xl p-8 text-center">
+                  <div className="w-20 h-20 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <CheckCircle2 className="h-10 w-10 text-emerald-600" />
+                  </div>
+                  <h3 className="text-xl font-semibold text-emerald-900 mb-2">
+                    Registration Complete!
+                  </h3>
+                  <p className="text-emerald-700 mb-4">
+                    Your company "{companyData.companyName}" is now registered.
+                  </p>
+                  <div className="inline-flex items-center gap-2 px-4 py-2 bg-amber-100 text-amber-800 rounded-full text-sm">
+                    <Clock className="h-4 w-4" />
+                    KYB Status: Pending Verification
+                  </div>
+                </div>
+
+                {/* What Would Happen in Production */}
+                <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                  <h4 className="font-medium text-gray-900 mb-3">In Production:</h4>
+                  <ol className="space-y-2 text-sm text-gray-600">
+                    <li className="flex items-start gap-2">
+                      <span className="bg-emerald-100 text-emerald-600 rounded-full w-5 h-5 flex items-center justify-center text-xs font-medium flex-shrink-0">✓</span>
+                      <span>You would be redirected to Bridge's secure KYC portal</span>
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <span className="bg-gray-200 text-gray-500 rounded-full w-5 h-5 flex items-center justify-center text-xs font-medium flex-shrink-0">2</span>
+                      <span>Upload your government-issued ID</span>
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <span className="bg-gray-200 text-gray-500 rounded-full w-5 h-5 flex items-center justify-center text-xs font-medium flex-shrink-0">3</span>
+                      <span>Complete a selfie verification</span>
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <span className="bg-gray-200 text-gray-500 rounded-full w-5 h-5 flex items-center justify-center text-xs font-medium flex-shrink-0">4</span>
+                      <span>Receive approval via webhook (typically 1-2 minutes)</span>
+                    </li>
+                  </ol>
+                </div>
+
+                {/* Demo CTA - Sign In */}
+                <div className="flex flex-col items-center gap-4">
+                  <p className="text-sm text-gray-600">
+                    For demo purposes, you can now sign in and start creating escrows:
+                  </p>
+                  <a href="/" className="w-full">
+                    <Button className="w-full bg-emerald-600 hover:bg-emerald-700">
+                      <ArrowRight className="h-4 w-4 mr-2" />
+                      Continue to Sign In
+                    </Button>
+                  </a>
+                </div>
+              </>
+            ) : (
+              // ════════════════════════════════════════════════════════════════
+              // PRODUCTION MODE: Redirect to Bridge KYC
+              // ════════════════════════════════════════════════════════════════
+              <>
+                {/* Redirect Countdown */}
+                <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-6 text-center">
+                  <p className="text-sm text-indigo-600 mb-2">
+                    Redirecting to secure verification in...
+                  </p>
+                  <div className="text-5xl font-bold text-indigo-700 mb-4">
+                    {redirectCountdown ?? 0}
+                  </div>
+                  <p className="text-sm text-indigo-600">
+                    seconds
+                  </p>
+                </div>
+
+                {/* Manual Links */}
+                <div className="space-y-3">
+                  <p className="text-sm text-gray-600 text-center">
+                    Or click below to proceed manually:
+                  </p>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <a
+                      href={verificationData.tosLink}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center justify-center gap-2 p-4 bg-gray-50 hover:bg-gray-100 border border-gray-200 rounded-lg transition-colors"
+                    >
+                      <span className="font-medium text-gray-900">1. Accept Terms of Service</span>
+                      <ExternalLink className="h-4 w-4 text-gray-500" />
+                    </a>
+                    
+                    <a
+                      href={verificationData.kycLink}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center justify-center gap-2 p-4 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 rounded-lg transition-colors"
+                    >
+                      <span className="font-medium text-indigo-900">2. Verify Identity</span>
+                      <ExternalLink className="h-4 w-4 text-indigo-500" />
+                    </a>
+                  </div>
+                </div>
+
+                {/* What to Expect */}
+                <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                  <h4 className="font-medium text-gray-900 mb-3">What to Expect:</h4>
+                  <ol className="space-y-2 text-sm text-gray-600">
+                    <li className="flex items-start gap-2">
+                      <span className="bg-indigo-100 text-indigo-600 rounded-full w-5 h-5 flex items-center justify-center text-xs font-medium flex-shrink-0">1</span>
+                      <span>Accept the Terms of Service agreement</span>
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <span className="bg-indigo-100 text-indigo-600 rounded-full w-5 h-5 flex items-center justify-center text-xs font-medium flex-shrink-0">2</span>
+                      <span>Take a photo of your government-issued ID</span>
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <span className="bg-indigo-100 text-indigo-600 rounded-full w-5 h-5 flex items-center justify-center text-xs font-medium flex-shrink-0">3</span>
+                      <span>Complete a quick selfie verification</span>
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <span className="bg-emerald-100 text-emerald-600 rounded-full w-5 h-5 flex items-center justify-center text-xs font-medium flex-shrink-0">✓</span>
+                      <span>Once approved, you can start creating escrows!</span>
+                    </li>
+                  </ol>
+                </div>
+
+                {/* Stop Redirect Button */}
+                <div className="text-center">
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    onClick={() => setRedirectCountdown(null)}
+                    className="text-gray-500"
+                  >
+                    Cancel auto-redirect
+                  </Button>
+                </div>
+              </>
             )}
-
-            {/* Redirect Countdown */}
-            <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-6 text-center">
-              <p className="text-sm text-indigo-600 mb-2">
-                Redirecting to secure verification in...
-              </p>
-              <div className="text-5xl font-bold text-indigo-700 mb-4">
-                {redirectCountdown}
-              </div>
-              <p className="text-sm text-indigo-600">
-                seconds
-              </p>
-            </div>
-
-            {/* Manual Links */}
-            <div className="space-y-3">
-              <p className="text-sm text-gray-600 text-center">
-                Or click below to proceed manually:
-              </p>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                <a
-                  href={verificationData.tosLink}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center justify-center gap-2 p-4 bg-gray-50 hover:bg-gray-100 border border-gray-200 rounded-lg transition-colors"
-                >
-                  <span className="font-medium text-gray-900">1. Accept Terms of Service</span>
-                  <ExternalLink className="h-4 w-4 text-gray-500" />
-                </a>
-                
-                <a
-                  href={verificationData.kycLink}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center justify-center gap-2 p-4 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 rounded-lg transition-colors"
-                >
-                  <span className="font-medium text-indigo-900">2. Verify Identity</span>
-                  <ExternalLink className="h-4 w-4 text-indigo-500" />
-                </a>
-              </div>
-            </div>
-
-            {/* What to Expect */}
-            <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-              <h4 className="font-medium text-gray-900 mb-3">What to Expect:</h4>
-              <ol className="space-y-2 text-sm text-gray-600">
-                <li className="flex items-start gap-2">
-                  <span className="bg-indigo-100 text-indigo-600 rounded-full w-5 h-5 flex items-center justify-center text-xs font-medium flex-shrink-0">1</span>
-                  <span>Accept the Terms of Service agreement</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <span className="bg-indigo-100 text-indigo-600 rounded-full w-5 h-5 flex items-center justify-center text-xs font-medium flex-shrink-0">2</span>
-                  <span>Take a photo of your government-issued ID</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <span className="bg-indigo-100 text-indigo-600 rounded-full w-5 h-5 flex items-center justify-center text-xs font-medium flex-shrink-0">3</span>
-                  <span>Complete a quick selfie verification</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <span className="bg-emerald-100 text-emerald-600 rounded-full w-5 h-5 flex items-center justify-center text-xs font-medium flex-shrink-0">✓</span>
-                  <span>Once approved, you can start creating escrows!</span>
-                </li>
-              </ol>
-            </div>
-
-            {/* Stop Redirect Button */}
-            <div className="text-center">
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                onClick={() => setRedirectCountdown(null)}
-                className="text-gray-500"
-              >
-                Cancel auto-redirect
-              </Button>
-            </div>
           </CardContent>
         </Card>
       )}
