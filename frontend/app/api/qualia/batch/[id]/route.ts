@@ -226,7 +226,7 @@ export async function POST(
         });
         
         // Get parsed items
-        const parsedItems = batch.parsedItems as ParsedPayoutItem[];
+        const parsedItems = batch.parsedItems as unknown as ParsedPayoutItem[];
         
         if (!parsedItems || parsedItems.length === 0) {
           await prisma.wireBatch.update({
