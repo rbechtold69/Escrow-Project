@@ -52,6 +52,9 @@ export async function GET(request: NextRequest) {
       vaultAddress: escrow.vaultAddress || '',
       currentBalance: escrow.currentBalance ? Number(escrow.currentBalance) : undefined,
       payeeCount: escrow.payees.length,
+      // Bridge.xyz fields for Qualia integration
+      bridgeWalletId: escrow.bridgeWalletId || undefined,
+      yieldEnabled: escrow.yieldEnabled,
     }));
     
     return NextResponse.json({

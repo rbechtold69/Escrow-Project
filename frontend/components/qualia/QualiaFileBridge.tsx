@@ -59,6 +59,7 @@ interface WireBatch {
   executedAt: string | null;
   completedAt: string | null;
   reconciliationGenerated: boolean;
+  escrowId: string | null;
 }
 
 interface ParsedItem {
@@ -123,20 +124,24 @@ export default function QualiaFileBridge({
   const [error, setError] = useState<string | null>(null);
   const [actionInProgress, setActionInProgress] = useState<string | null>(null);
   
-  // Fetch batches
+  // Fetch batches (filtered by escrowId if provided)
   const fetchBatches = useCallback(async () => {
     try {
       const response = await fetch('/api/qualia/batch');
       if (response.ok) {
         const data = await response.json();
-        setBatches(data.batches);
+        // Filter batches by escrowId if one is provided
+        const filteredBatches = escrowId 
+          ? data.batches.filter((b: WireBatch) => b.escrowId === escrowId)
+          : data.batches;
+        setBatches(filteredBatches);
       }
     } catch (err) {
       console.error('Failed to fetch batches:', err);
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [escrowId]);
   
   useEffect(() => {
     fetchBatches();
