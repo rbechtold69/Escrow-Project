@@ -44,6 +44,7 @@ export default function NewEscrowPage() {
     buyerFirstName: '',
     buyerLastName: '',
     buyerEmail: '',
+    buyerPhone: '', // Phone for SMS verification
     // Yield Preference
     yieldEnabled: true, // Default: ON (USDB)
     // Approval Settings
@@ -206,7 +207,15 @@ export default function NewEscrowPage() {
     } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.buyerEmail)) {
       newErrors.buyerEmail = 'Enter a valid email address';
     }
-    
+
+    // Phone validation (optional but validated if provided)
+    if (formData.buyerPhone.trim()) {
+      const cleanPhone = formData.buyerPhone.replace(/[^\d]/g, '');
+      if (cleanPhone.length < 10) {
+        newErrors.buyerPhone = 'Enter a valid phone number';
+      }
+    }
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -237,6 +246,7 @@ export default function NewEscrowPage() {
           buyerFirstName: formData.buyerFirstName,
           buyerLastName: formData.buyerLastName,
           buyerEmail: formData.buyerEmail,
+          buyerPhone: formData.buyerPhone.trim() || undefined,
           officerAddress: address,
           yieldEnabled: formData.yieldEnabled,
           // Approval settings
@@ -690,6 +700,24 @@ export default function NewEscrowPage() {
                 )}
                 <p className="text-xs text-gray-500 mt-1">
                   We'll use this to send the buyer their wiring instructions
+                </p>
+              </div>
+
+              <div>
+                <Label htmlFor="buyerPhone">Phone Number (for Secure Wire Portal)</Label>
+                <Input
+                  id="buyerPhone"
+                  type="tel"
+                  placeholder="(555) 123-4567"
+                  value={formData.buyerPhone}
+                  onChange={(e) => setFormData(prev => ({ ...prev, buyerPhone: e.target.value }))}
+                  className={errors.buyerPhone ? 'border-red-500' : ''}
+                />
+                {errors.buyerPhone && (
+                  <p className="text-sm text-red-500 mt-1">{errors.buyerPhone}</p>
+                )}
+                <p className="text-xs text-gray-500 mt-1">
+                  Required for SMS verification when accessing secure wire instructions
                 </p>
               </div>
             </CardContent>

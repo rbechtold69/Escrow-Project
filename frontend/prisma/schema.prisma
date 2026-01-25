@@ -30,8 +30,8 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
 }
 
 // ============================================================================
@@ -94,6 +94,7 @@ model Escrow {
   buyerFirstName  String
   buyerLastName   String
   buyerEmail      String
+  buyerPhone      String?    // Phone for SMS verification (+1XXXXXXXXXX)
   
   // Expected closing date (from Qualia import or manual entry)
   closingDate     DateTime?
@@ -180,7 +181,8 @@ model Escrow {
   signers         EscrowSigner[]
   activityLogs    ActivityLog[]
   wireBatches     WireBatch[]
-  
+  secureWireLinks SecureWireLink[]
+
   @@index([escrowId])
   @@index([status])
   @@index([createdById])
@@ -687,6 +689,109 @@ enum WireBatchStatus {
   FAILED            // All payouts failed
   REJECTED          // Checker rejected the batch
   CANCELLED         // Maker cancelled before approval
+}
+
+// ============================================================================
+// SECURE WIRE INSTRUCTION LINKS
+// ============================================================================
+//
+// Secure portal for sharing wire instructions with buyers:
+// - Time-limited, single-use secure links
+// - SMS verification required before viewing wire details
+// - Out-of-band confirmation via SMS with account last 4 digits
+// - Full audit trail of all access
+//
+// ============================================================================
+
+model SecureWireLink {
+  id              String          @id @default(cuid())
+
+  // Unique token for the secure link (UUID v4)
+  token           String          @unique
+
+  // Link status
+  status          WireLinkStatus  @default(SENT)
+
+  // Expiration (default 72 hours from creation)
+  expiresAt       DateTime
+
+  // Verification code (SHA-256 hashed)
+  verificationCodeHash  String?
+  verificationCodeExpiresAt DateTime?
+  verificationAttempts  Int       @default(0)
+
+  // Timestamps
+  sentAt          DateTime        @default(now())
+  accessedAt      DateTime?       // First time link was accessed
+  verifiedAt      DateTime?       // When SMS code was verified
+  viewedAt        DateTime?       // When wire instructions were viewed
+  revokedAt       DateTime?       // If officer revoked the link
+
+  // Who sent this link
+  sentByWallet    String?
+  sentByName      String?
+
+  // Revocation info
+  revokedByWallet String?
+  revokedReason   String?
+
+  // Relations
+  escrow          Escrow          @relation(fields: [escrowId], references: [id], onDelete: Cascade)
+  escrowId        String
+  accessLogs      WireLinkAccessLog[]
+
+  @@index([token])
+  @@index([escrowId])
+  @@index([status])
+  @@index([expiresAt])
+}
+
+model WireLinkAccessLog {
+  id              String          @id @default(cuid())
+
+  // What action was taken
+  action          WireLinkAction
+
+  // Request metadata
+  ipAddress       String?
+  userAgent       String?
+
+  // Additional details (JSON for flexibility)
+  details         Json?
+
+  // Timestamp
+  createdAt       DateTime        @default(now())
+
+  // Relations
+  link            SecureWireLink  @relation(fields: [linkId], references: [id], onDelete: Cascade)
+  linkId          String
+
+  @@index([linkId])
+  @@index([createdAt])
+  @@index([action])
+}
+
+enum WireLinkStatus {
+  SENT            // Link sent via email, not yet accessed
+  ACCESSED        // Link clicked, verification pending
+  VERIFIED        // SMS code verified successfully
+  VIEWED          // Wire instructions viewed
+  EXPIRED         // Link expired (past expiresAt)
+  REVOKED         // Officer manually revoked the link
+}
+
+enum WireLinkAction {
+  LINK_CREATED    // Link was generated and sent
+  LINK_ACCESSED   // Buyer clicked the link
+  CODE_REQUESTED  // SMS verification code requested
+  CODE_RESENT     // SMS code was resent
+  CODE_VERIFIED   // Correct code entered
+  CODE_FAILED     // Wrong code entered
+  CODE_LOCKED     // Too many failed attempts
+  INSTRUCTIONS_VIEWED  // Wire instructions displayed
+  CONFIRMATION_SENT    // Out-of-band SMS confirmation sent
+  LINK_EXPIRED    // Link expired
+  LINK_REVOKED    // Officer revoked the link
 }
 
 // ============================================================================

@@ -40,6 +40,7 @@ const CreateEscrowSchema = z.object({
   buyerFirstName: z.string().min(1, 'Buyer first name is required'),
   buyerLastName: z.string().min(1, 'Buyer last name is required'),
   buyerEmail: z.string().email('Valid buyer email is required'),
+  buyerPhone: z.string().optional(), // Phone for SMS verification (+1XXXXXXXXXX format)
   officerAddress: z.string().optional(),
   // Yield preference: true = USDB (earn yield), false = USDC (no yield)
   yieldEnabled: z.boolean().optional().default(true),
@@ -186,7 +187,8 @@ export async function POST(request: NextRequest) {
         buyerFirstName: validatedData.buyerFirstName,
         buyerLastName: validatedData.buyerLastName,
         buyerEmail: validatedData.buyerEmail,
-        
+        buyerPhone: validatedData.buyerPhone || null,
+
         // Bridge.xyz references
         bridgeWalletId: bridgeWallet?.id || null,
         bridgeWalletAddress: bridgeWallet?.address || null,

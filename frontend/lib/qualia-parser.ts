@@ -27,6 +27,7 @@ export interface EscrowHeaderData {
   buyerFirstName: string;
   buyerLastName: string;
   buyerEmail: string;
+  buyerPhone?: string;          // Phone for SMS verification
   closingDate?: string;
 }
 
@@ -493,6 +494,13 @@ function parseEscrowHeader(lines: string[]): {
         case 'buyer email':
         case 'buyer e-mail':
           headerData.buyerEmail = value;
+          break;
+        case 'buyer phone':
+        case 'buyer phone number':
+        case 'buyer mobile':
+        case 'buyer cell':
+        case 'buyer telephone':
+          headerData.buyerPhone = value;
           break;
         case 'closing date':
         case 'close date':
