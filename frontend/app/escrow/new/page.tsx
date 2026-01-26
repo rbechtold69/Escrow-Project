@@ -86,6 +86,9 @@ export default function NewEscrowPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [copied, setCopied] = useState<string | null>(null);
   const [isSendingEmail, setIsSendingEmail] = useState(false);
+  const [isSendingSecureLink, setIsSendingSecureLink] = useState(false);
+  const [secureLinkUrl, setSecureLinkUrl] = useState<string | null>(null);
+  const [secureLinkSent, setSecureLinkSent] = useState(false);
 
   // Prevent hydration mismatch
   useEffect(() => {
@@ -280,29 +283,50 @@ export default function NewEscrowPage() {
     setTimeout(() => setCopied(null), 2000);
   };
 
-  const handleEmailToBuyer = async () => {
-    if (!escrowId || !wiringInstructions) return;
-    
-    setIsSendingEmail(true);
-    
-    // In a real app, this would call an API to send the email
-    // For demo purposes, we'll just show a success message
+  const handleSendSecureWireLink = async () => {
+    if (!escrowId) return;
+
+    setIsSendingSecureLink(true);
+
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      toast({
-        title: 'Email Sent!',
-        description: `Wiring instructions sent to ${formData.buyerEmail}`,
+      const response = await fetch('/api/wire-instructions/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          escrowId,
+          sentByWallet: address || '0x0000000000000000000000000000000000000000',
+          sentByName: 'Escrow Officer',
+        }),
       });
-    } catch (error) {
+
+      const data = await response.json();
+
+      if (!response.ok || !data.success) {
+        throw new Error(data.error || 'Failed to send secure link');
+      }
+
+      setSecureLinkSent(true);
+
+      if (data.demoMode && data.linkUrl) {
+        setSecureLinkUrl(data.linkUrl);
+        toast({
+          title: 'Secure Link Generated',
+          description: 'Demo mode: Link shown below (email simulated)',
+        });
+      } else {
+        toast({
+          title: 'Secure Wire Instructions Sent',
+          description: `Secure link emailed to ${formData.buyerEmail}`,
+        });
+      }
+    } catch (error: any) {
       toast({
         title: 'Error',
-        description: 'Failed to send email. Please try again.',
+        description: error.message || 'Failed to send secure wire instructions.',
         variant: 'destructive',
       });
     } finally {
-      setIsSendingEmail(false);
+      setIsSendingSecureLink(false);
     }
   };
 
@@ -1104,25 +1128,68 @@ export default function NewEscrowPage() {
             </div>
           </CardHeader>
           <CardContent className="space-y-6">
-            {/* Buyer Info Summary */}
-            <div className="bg-gray-50 rounded-lg p-4 flex items-center justify-between">
+            {/* Secure Wire Portal */}
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+              <div className="flex items-center gap-2 mb-3">
+                <Shield className="h-5 w-5 text-blue-600" />
+                <h4 className="font-medium text-blue-900">Secure Wire Portal</h4>
+              </div>
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-blue-800">
+                    Send {formData.buyerFirstName} a secure, verified link to view wire instructions
+                  </p>
+                  <p className="text-xs text-blue-600 mt-1">
+                    {formData.buyerPhone
+                      ? `SMS verification to ${formData.buyerPhone}`
+                      : 'No phone on file — add one above to enable SMS verification'}
+                  </p>
+                </div>
+                <Button
+                  onClick={handleSendSecureWireLink}
+                  disabled={isSendingSecureLink || secureLinkSent || !formData.buyerPhone}
+                  className="bg-blue-600 hover:bg-blue-700 shrink-0 ml-4"
+                >
+                  {isSendingSecureLink ? (
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  ) : secureLinkSent ? (
+                    <CheckCircle2 className="h-4 w-4 mr-2" />
+                  ) : (
+                    <Shield className="h-4 w-4 mr-2" />
+                  )}
+                  {secureLinkSent ? 'Link Sent' : 'Send Secure Link'}
+                </Button>
+              </div>
+
+              {/* Demo link display */}
+              {secureLinkUrl && (
+                <div className="mt-3 p-3 bg-white border border-blue-200 rounded-lg">
+                  <p className="text-xs font-medium text-amber-700 mb-1">DEMO MODE — Email simulated</p>
+                  <a
+                    href={secureLinkUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-sm text-blue-600 hover:text-blue-800 underline break-all"
+                  >
+                    {secureLinkUrl}
+                  </a>
+                  <p className="text-xs text-gray-500 mt-1">
+                    Click to test the buyer verification flow
+                  </p>
+                </div>
+              )}
+            </div>
+
+            {/* Buyer Info */}
+            <div className="bg-gray-50 rounded-lg p-4">
               <div>
                 <p className="text-sm text-gray-500">Buyer</p>
                 <p className="font-medium">{formData.buyerFirstName} {formData.buyerLastName}</p>
                 <p className="text-sm text-gray-600">{formData.buyerEmail}</p>
-              </div>
-              <Button 
-                onClick={handleEmailToBuyer}
-                disabled={isSendingEmail}
-                className="bg-emerald-600 hover:bg-emerald-700"
-              >
-                {isSendingEmail ? (
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                ) : (
-                  <Mail className="h-4 w-4 mr-2" />
+                {formData.buyerPhone && (
+                  <p className="text-sm text-gray-600">{formData.buyerPhone}</p>
                 )}
-                Email Instructions
-              </Button>
+              </div>
             </div>
 
             {/* Interest Status Banner */}
