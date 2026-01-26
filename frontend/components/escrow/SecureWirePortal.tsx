@@ -108,6 +108,7 @@ export default function SecureWirePortal({
   const [isRevoking, setIsRevoking] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [demoLinkUrl, setDemoLinkUrl] = useState<string | null>(null);
 
   // Get the active link (most recent non-expired, non-revoked)
   const activeLink = links.find(
@@ -189,10 +190,18 @@ export default function SecureWirePortal({
         throw new Error(data.error || 'Failed to send wire instructions');
       }
 
-      toast({
-        title: 'Wire Instructions Sent',
-        description: `Secure link emailed to ${buyerEmail}`,
-      });
+      if (data.demoMode && data.linkUrl) {
+        setDemoLinkUrl(data.linkUrl);
+        toast({
+          title: 'Demo: Wire Instructions Link Generated',
+          description: 'Link shown below (email simulated in demo mode)',
+        });
+      } else {
+        toast({
+          title: 'Wire Instructions Sent',
+          description: `Secure link emailed to ${buyerEmail}`,
+        });
+      }
 
       // Refresh links
       await fetchLinks();
@@ -397,6 +406,28 @@ export default function SecureWirePortal({
                 </Button>
               </div>
             )}
+          </div>
+        )}
+
+        {/* Demo Mode Link */}
+        {demoLinkUrl && (
+          <div className="border border-blue-200 bg-blue-50 rounded-lg p-4">
+            <div className="flex items-center gap-2 mb-2">
+              <span className="text-xs bg-blue-200 text-blue-800 px-2 py-0.5 rounded font-medium">DEMO MODE</span>
+              <span className="text-sm text-blue-700">Buyer would receive this link via email</span>
+            </div>
+            <a
+              href={demoLinkUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-sm text-blue-600 hover:text-blue-800 underline break-all flex items-center gap-1"
+            >
+              <ExternalLink className="h-3 w-3 shrink-0" />
+              {demoLinkUrl}
+            </a>
+            <p className="text-xs text-blue-600 mt-2">
+              Click to test the buyer verification flow
+            </p>
           </div>
         )}
 

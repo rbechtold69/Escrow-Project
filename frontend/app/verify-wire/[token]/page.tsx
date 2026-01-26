@@ -78,6 +78,7 @@ export default function VerifyWirePage() {
   const [isResending, setIsResending] = useState(false);
   const [codeSent, setCodeSent] = useState(false);
   const [codeExpiresAt, setCodeExpiresAt] = useState<Date | null>(null);
+  const [demoCode, setDemoCode] = useState<string | null>(null);
 
   // Copy state
   const [copied, setCopied] = useState<string | null>(null);
@@ -176,6 +177,7 @@ export default function VerifyWirePage() {
 
       setCodeSent(true);
       setCodeExpiresAt(data.expiresAt ? new Date(data.expiresAt) : null);
+      setDemoCode(data.demoCode || null);
       setCode(['', '', '', '', '', '']);
       inputRefs.current[0]?.focus();
     } catch (err) {
@@ -403,9 +405,18 @@ export default function VerifyWirePage() {
                 <h2 className="text-lg font-semibold text-gray-900 mb-2 text-center">
                   Enter Verification Code
                 </h2>
-                <p className="text-gray-600 text-sm mb-6 text-center">
+                <p className="text-gray-600 text-sm mb-4 text-center">
                   Enter the 6-digit code sent to your phone
                 </p>
+
+                {/* Demo Mode: Show code on screen */}
+                {demoCode && (
+                  <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-lg text-center">
+                    <p className="text-xs font-medium text-amber-700 mb-1">DEMO MODE — SMS Simulated</p>
+                    <p className="text-2xl font-mono font-bold text-amber-900 tracking-widest">{demoCode}</p>
+                    <p className="text-xs text-amber-600 mt-1">In production, this code is sent via SMS</p>
+                  </div>
+                )}
 
                 {/* Code Input */}
                 <div className="flex justify-center gap-2 mb-4">

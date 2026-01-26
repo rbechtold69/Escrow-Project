@@ -325,7 +325,7 @@ export class SecureLinkService {
     token: string,
     ipAddress?: string,
     userAgent?: string
-  ): Promise<{ success: boolean; expiresAt?: Date; error?: string }> {
+  ): Promise<{ success: boolean; expiresAt?: Date; demoCode?: string; error?: string }> {
     try {
       const linkStatus = await this.getLink(token, ipAddress, userAgent);
       if (!linkStatus.success || !linkStatus.link || !linkStatus.escrow) {
@@ -374,9 +374,13 @@ export class SecureLinkService {
         phoneLastFour: escrow.buyerPhone.slice(-4),
       });
 
+      // In demo mode (no Twilio), return the code so the UI can display it
+      const isDemoMode = !process.env.TWILIO_ACCOUNT_SID;
+
       return {
         success: true,
         expiresAt: codeExpiresAt,
+        demoCode: isDemoMode ? code : undefined,
       };
     } catch (error: any) {
       console.error('[SecureLinkService] requestVerificationCode error:', error);

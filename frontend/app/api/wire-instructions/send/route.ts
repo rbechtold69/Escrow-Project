@@ -46,12 +46,22 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // In demo mode (no Twilio/Resend configured), return the link URL
+    // so the dashboard can show it directly
+    const isDemoMode = !process.env.TWILIO_ACCOUNT_SID || !process.env.RESEND_API_KEY;
+    const baseUrl = process.env.WIRE_PORTAL_BASE_URL || `${request.headers.get('origin') || 'http://localhost:3000'}/verify-wire`;
+    const linkUrl = `${baseUrl}/${result.token}`;
+
     return NextResponse.json({
       success: true,
       linkId: result.linkId,
       token: result.token,
       expiresAt: result.expiresAt?.toISOString(),
-      message: 'Secure wire instruction link sent to buyer',
+      message: isDemoMode
+        ? 'Demo mode: Link generated (email simulated)'
+        : 'Secure wire instruction link sent to buyer',
+      demoMode: isDemoMode,
+      linkUrl: isDemoMode ? linkUrl : undefined,
     });
   } catch (error: any) {
     console.error('[API] wire-instructions/send error:', error);

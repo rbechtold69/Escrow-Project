@@ -53,7 +53,10 @@ export async function POST(
     return NextResponse.json({
       success: true,
       expiresAt: result.expiresAt?.toISOString(),
-      message: 'Verification code sent',
+      message: result.demoCode
+        ? 'Demo mode: Code shown on screen (SMS simulated)'
+        : 'Verification code sent',
+      demoCode: result.demoCode || undefined,
     });
   } catch (error: any) {
     console.error('[API] wire-instructions/[token]/resend-code error:', error);
