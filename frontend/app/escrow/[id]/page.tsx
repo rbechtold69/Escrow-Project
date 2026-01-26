@@ -54,7 +54,6 @@ import { cn } from '@/lib/utils';
 import { DisbursementSheet } from '@/components/escrow/disbursement-sheet';
 import { DemoPanel } from '@/components/escrow/demo-panel';
 import { MultisigSigning } from '@/components/escrow/multisig-signing';
-import SecureWirePortal from '@/components/escrow/SecureWirePortal';
 import { useToast } from '@/hooks/use-toast';
 import { usePusher } from '@/hooks/use-pusher';
 import { useAccount } from 'wagmi';
@@ -73,7 +72,6 @@ interface EscrowData {
   status: 'CREATED' | 'FUNDS_RECEIVED' | 'READY_TO_CLOSE' | 'CLOSING' | 'CLOSED' | 'CANCELLED';
   buyerName: string;
   buyerEmail: string;
-  buyerPhone?: string;
   sellerName: string;
   sellerEmail: string;
   createdAt: string;
@@ -755,16 +753,6 @@ export default function EscrowDetailPage() {
                 </Button>
               </CardContent>
             </Card>
-
-            {/* Secure Wire Portal - Send verified wire instructions to buyer */}
-            {escrow.status !== 'CLOSED' && (
-              <SecureWirePortal
-                escrowId={escrow.escrowId}
-                buyerName={escrow.buyerName}
-                buyerEmail={escrow.buyerEmail}
-                buyerPhone={escrow.buyerPhone || null}
-              />
-            )}
 
             {/* Security Info - Hidden from users, visible to admins only in debug mode */}
             {process.env.NODE_ENV === 'development' && (
