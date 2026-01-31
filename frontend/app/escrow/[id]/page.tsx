@@ -57,6 +57,8 @@ import { MultisigSigning } from '@/components/escrow/multisig-signing';
 import { useToast } from '@/hooks/use-toast';
 import { usePusher } from '@/hooks/use-pusher';
 import { useAccount } from 'wagmi';
+import { ActivityLog } from '@/components/escrow/activity-log';
+import { generateWiringInstructionsPDF } from '@/lib/pdf-generator';
 
 // ============================================================
 // Types
@@ -524,18 +526,7 @@ export default function EscrowDetailPage() {
               </TabsContent>
 
               <TabsContent value="activity" className="mt-4">
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="text-lg">Activity Log</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-4">
-                      <p className="text-sm text-slate-500">
-                        Activity log coming soon...
-                      </p>
-                    </div>
-                  </CardContent>
-                </Card>
+                <ActivityLog escrowId={escrow.id} />
               </TabsContent>
 
               <TabsContent value="documents" className="mt-4">
@@ -545,7 +536,11 @@ export default function EscrowDetailPage() {
                   </CardHeader>
                   <CardContent>
                     <div className="space-y-2">
-                      <Button variant="outline" className="w-full justify-start">
+                      <Button 
+                        variant="outline" 
+                        className="w-full justify-start"
+                        onClick={() => generateWiringInstructionsPDF(escrow)}
+                      >
                         <FileText className="h-4 w-4 mr-2" />
                         Wiring Instructions PDF
                         <Download className="h-4 w-4 ml-auto" />
@@ -747,7 +742,11 @@ export default function EscrowDetailPage() {
                   </div>
                 </TooltipProvider>
 
-                <Button variant="outline" className="w-full mt-4">
+                <Button 
+                  variant="outline" 
+                  className="w-full mt-4"
+                  onClick={() => generateWiringInstructionsPDF(escrow)}
+                >
                   <Download className="h-4 w-4 mr-2" />
                   Download PDF
                 </Button>
